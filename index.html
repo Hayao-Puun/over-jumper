@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>OVERWELL</title>
-    <link rel="icon" href="favicon.jpg" type="image/png">
+    <link rel="icon" href="favicon.jpg" type="image/jpg">
     <style>
         /* CSS: ビジュアルとレイアウト設定 */
         :root {
@@ -57,11 +57,11 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            font-size: 14px;
+            font-size: 13px;
         }
         .header-icons {
             display: flex;
-            gap: 20px;
+            gap: 15px;
             font-size: 20px;
             justify-content: center;
             width: 100%;
@@ -69,7 +69,26 @@
         .icon-active { opacity: 1; text-shadow: 0 0 8px rgba(255, 255, 255, 0.8); }
         .icon-inactive { opacity: 0.3; filter: grayscale(100%); }
         .hud-red { color: var(--accent-color); }
-        .hud-gem { color: var(--gem-color); }
+        .hud-gem { color: var(--gem-color); text-shadow: 0 0 5px var(--gem-color); }
+
+        /* アイコン用コンテナとレベルバッジ */
+        .icon-wrapper { position: relative; display: inline-block; }
+        .lvl-badge {
+            position: absolute;
+            bottom: -5px;
+            right: -5px;
+            background-color: var(--accent-color);
+            color: var(--fg-color);
+            font-size: 10px;
+            border-radius: 50%;
+            width: 16px;
+            height: 16px;
+            line-height: 16px;
+            text-align: center;
+            font-family: sans-serif;
+            border: 1px solid var(--bg-color);
+            text-shadow: none;
+        }
 
         #game-container {
             position: relative;
@@ -170,6 +189,17 @@
         .shop-item-title { font-weight: bold; color: var(--accent-color); font-size: 16px;} 
         .shop-item-desc { font-size: 12px; color: #aaa; margin-top: 4px; } 
 
+        .btn.focused {
+            border-color: var(--accent-color);
+            background-color: var(--accent-color);
+            color: var(--bg-color);
+        }
+        .shop-item.focused {
+            border-color: var(--accent-color);
+            box-shadow: 0 0 10px rgba(229, 46, 46, 0.5);
+            background-color: rgba(229, 46, 46, 0.2);
+        }
+
         /* 操作説明 */
         .controls-info {
             font-size: 14px; 
@@ -219,10 +249,12 @@
         </div>
         <div class="header-row" style="margin-top: 8px;">
             <div class="header-icons">
-                <span id="icon-shield" class="icon-inactive" title="Shield">🛡️</span>
-                <span id="icon-double" class="icon-inactive" title="Double Jump">⏫</span>
-                <span id="icon-magnet" class="icon-inactive" title="Magnet">🧲</span>
-                <span id="icon-stomp" class="icon-inactive" title="Super Stomp">💥</span>
+                <div class="icon-wrapper"><span id="icon-shield" class="icon-inactive" title="Shield">🛡️</span><span id="lvl-shield" class="lvl-badge hidden"></span></div>
+                <div class="icon-wrapper"><span id="icon-doubleJump" class="icon-inactive" title="Double Jump">⏫</span><span id="lvl-doubleJump" class="lvl-badge hidden"></span></div>
+                <div class="icon-wrapper"><span id="icon-magnet" class="icon-inactive" title="Magnet">🧲</span><span id="lvl-magnet" class="lvl-badge hidden"></span></div>
+                <div class="icon-wrapper"><span id="icon-highJump" class="icon-inactive" title="Super Stomp">💥</span><span id="lvl-highJump" class="lvl-badge hidden"></span></div>
+                <div class="icon-wrapper"><span id="icon-converter" class="icon-inactive" title="Gem Converter">💎</span><span id="lvl-converter" class="lvl-badge hidden"></span></div>
+                <div class="icon-wrapper"><span id="icon-regen" class="icon-inactive" title="Regeneration">💖</span><span id="lvl-regen" class="lvl-badge hidden"></span></div>
             </div>
         </div>
     </div>
@@ -275,7 +307,7 @@
                 <!-- jsで動的生成 -->
             </div>
 
-            <button class="btn" onclick="startNextStage()">NEXT STAGE <span class="pad-only pad-badge">[START]</span></button>
+            <button id="btn-next-stage" class="btn" onclick="startNextStage()">NEXT STAGE <span class="pad-only pad-badge">[A] / [START]</span></button>
         </div>
 
         <!-- Pause Screen -->
@@ -328,50 +360,58 @@ const COLOR_SHIELD = '#00ffff';
 const FPS = 60;
 const STEP = 1/FPS;
 
+// 多重スクロール用背景パーティクル
+let bgStars = [];
+
 // ==========================================
 // Audio System (Web Audio API - Synthesizer)
 // ==========================================
 const AudioContext = window.AudioContext || window.webkitAudioContext;
 let actx = null;
 let masterGain = null;
+let biquadFilter = null; // ダイナミックBGM用フィルター
 let bgmOscillators = []; 
 
-// 音量の初期設定 (localStorageから取得)
+// 音量の初期設定
 let masterVolume = parseFloat(localStorage.getItem('overwell_vol'));
-if (isNaN(masterVolume)) masterVolume = 0.5; // デフォルト50%
+if (isNaN(masterVolume)) masterVolume = 0.5;
 
 function initAudio() {
     if (!actx) {
         actx = new AudioContext();
         masterGain = actx.createGain();
         masterGain.gain.value = masterVolume;
-        masterGain.connect(actx.destination);
+        
+        // ローパスフィルター設定（マグマ接近時にこもる音になる）
+        biquadFilter = actx.createBiquadFilter();
+        biquadFilter.type = 'lowpass';
+        biquadFilter.frequency.value = 20000; // 初期はスルー
+        
+        masterGain.connect(biquadFilter);
+        biquadFilter.connect(actx.destination);
     }
     if (actx.state === 'suspended' && scene !== 'PAUSE') {
         actx.resume();
     }
 }
 
-// 5段階音量スライダーのイベント設定
+// 5段階音量スライダー
 const volSliders = document.querySelectorAll('.vol-slider');
 volSliders.forEach(slider => {
-    // 0~1の音量を 0~4の5段階表記に変換
     slider.value = Math.round(masterVolume * 4);
-    
     slider.addEventListener('input', (e) => {
-        let val = parseInt(e.target.value); // 0, 1, 2, 3, 4
-        masterVolume = val * 0.25; // 0, 0.25, 0.5, 0.75, 1.0 に変換
+        let val = parseInt(e.target.value); 
+        masterVolume = val * 0.25; 
         localStorage.setItem('overwell_vol', masterVolume);
         
         if (masterGain) {
             masterGain.gain.value = masterVolume;
         }
-        // 他のスライダーと同期
         volSliders.forEach(s => { if(s !== e.target) s.value = val; });
     });
 });
 
-function playSound(type) {
+function playSound(type, ...args) {
     if (!actx || !masterGain || masterVolume === 0) return;
     const osc = actx.createOscillator();
     const gain = actx.createGain();
@@ -406,9 +446,14 @@ function playSound(type) {
             osc.start(now); osc.stop(now + 0.1);
             break;
         case 'hit': 
+            // 音楽的な上昇 (ペンタトニックスケール)
+            let combo = args[0] || 1;
+            const penta = [261.63, 293.66, 329.63, 392.00, 440.00, 523.25, 587.33, 659.25, 783.99, 880.00, 1046.50, 1174.66, 1318.51, 1567.98];
+            let noteIdx = Math.min(combo - 1, penta.length - 1);
+            let baseFreq = penta[noteIdx];
             osc.type = 'square';
-            osc.frequency.setValueAtTime(300, now);
-            osc.frequency.setValueAtTime(600, now + 0.05);
+            osc.frequency.setValueAtTime(baseFreq, now);
+            osc.frequency.setValueAtTime(baseFreq * 2, now + 0.05);
             gain.gain.setValueAtTime(0.15, now);
             gain.gain.exponentialRampToValueAtTime(0.01, now + 0.2);
             osc.start(now); osc.stop(now + 0.2);
@@ -492,6 +537,14 @@ function playSound(type) {
                 o.stop(now + note.t + dur);
             });
             break;
+        case 'select':
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(400, now);
+            osc.frequency.exponentialRampToValueAtTime(800, now + 0.05);
+            gain.gain.setValueAtTime(0.05, now);
+            gain.gain.exponentialRampToValueAtTime(0.01, now + 0.05);
+            osc.start(now); osc.stop(now + 0.05);
+            break;
     }
 }
 
@@ -517,13 +570,16 @@ function scheduleBGM() {
         let vol = 0.04;
 
         if (starInvincibleTimer > 0) {
+            let isEnding = starInvincibleTimer < 120; // 残り2秒で切れかけ演出
+            let speed = isEnding ? 1.5 : 1; // 切れかけはテンポとピッチが上がる
+            
             notes = [
-                {time: 0, freq: 523.25}, 
-                {time: 0.125, freq: 659.25}, 
-                {time: 0.25, freq: 783.99}, 
-                {time: 0.375, freq: 1046.50} 
+                {time: 0, freq: 523.25 * (isEnding ? 1.2 : 1)}, 
+                {time: 0.125 / speed, freq: 659.25 * (isEnding ? 1.2 : 1)}, 
+                {time: 0.25 / speed, freq: 783.99 * (isEnding ? 1.2 : 1)}, 
+                {time: 0.375 / speed, freq: 1046.50 * (isEnding ? 1.2 : 1)} 
             ];
-            duration = 0.5;
+            duration = 0.5 / speed;
             type = 'square';
             vol = 0.05;
         } else {
@@ -556,7 +612,7 @@ function scheduleBGM() {
             osc.connect(gain);
             gain.connect(masterGain);
             
-            let playTime = starInvincibleTimer > 0 ? 0.1 : 0.2;
+            let playTime = starInvincibleTimer > 0 ? (0.1 / (starInvincibleTimer < 120 ? 1.5 : 1)) : 0.2;
             gain.gain.setValueAtTime(vol, bgmNextScheduleTime + note.time);
             gain.gain.exponentialRampToValueAtTime(0.001, bgmNextScheduleTime + note.time + playTime);
             
@@ -589,6 +645,7 @@ let prevKeys = {};
 let padButtons = [];
 let prevPadButtons = [];
 let padAxes = [];
+let prevPadAxes = [];
 let isPadMode = false;
 
 function setInputMode(mode) {
@@ -608,6 +665,9 @@ function updateGamepad() {
     for (let i = 0; i < 20; i++) {
         prevPadButtons[i] = padButtons[i] || false;
     }
+    for (let i = 0; i < 4; i++) {
+        prevPadAxes[i] = padAxes[i] || 0;
+    }
 
     if (pad) {
         let padActive = false;
@@ -615,13 +675,15 @@ function updateGamepad() {
             padButtons[i] = pad.buttons[i].pressed;
             if (padButtons[i]) padActive = true;
         }
-        padAxes[0] = pad.axes[0] || 0; // L-Stick X
-        if (Math.abs(padAxes[0]) > 0.3) padActive = true;
+        padAxes[0] = pad.axes[0] || 0; 
+        padAxes[1] = pad.axes[1] || 0; 
+        if (Math.abs(padAxes[0]) > 0.3 || Math.abs(padAxes[1]) > 0.3) padActive = true;
 
         if (padActive) setInputMode('pad');
     } else {
         for (let i = 0; i < 20; i++) padButtons[i] = false;
         padAxes[0] = 0;
+        padAxes[1] = 0;
     }
 }
 
@@ -634,22 +696,14 @@ window.addEventListener('keydown', e => {
     initAudio(); 
     setInputMode('kbd');
 
-    // エンターキーでのスタート＆リスタート
     if (e.code === 'Enter' && !e.repeat) {
-        if (scene === 'TITLE') {
-            startGame();
-        } else if (scene === 'GAMEOVER') {
-            restartGame();
-        }
+        if (scene === 'TITLE') startGame();
+        else if (scene === 'GAMEOVER') restartGame();
     }
 
-    // エスケープキーでのポーズ
     if (e.code === 'Escape' && !e.repeat) {
-        if (scene === 'PLAY') {
-            pauseGame();
-        } else if (scene === 'PAUSE') {
-            resumeGame();
-        }
+        if (scene === 'PLAY') pauseGame();
+        else if (scene === 'PAUSE') resumeGame();
     }
 });
 
@@ -672,8 +726,6 @@ function updateInput() {
     }
     updateGamepad();
 
-    // グローバルなGamepadメニュー操作
-    // START(9): メニュー・開始・再開
     if (isPadBtnJustPressed(9)) {
         initAudio();
         if (scene === 'TITLE') startGame();
@@ -682,22 +734,46 @@ function updateInput() {
         else if (scene === 'GAMEOVER') restartGame();
         else if (scene === 'SHOP') startNextStage();
     }
-    // Y(3): リスタート
     if (isPadBtnJustPressed(3)) {
         initAudio();
         if (scene === 'PAUSE' || scene === 'GAMEOVER' || scene === 'TITLE') {
             restartGame();
         }
     }
-    // B(1): キャンセル/再開
     if (isPadBtnJustPressed(1)) {
         if (scene === 'PAUSE') resumeGame();
     }
-    // L(4) + R(5): タイトルへ
     if (padButtons[4] && padButtons[5]) {
-        if (!(prevPadButtons[4] && prevPadButtons[5])) { // 押した瞬間
+        if (!(prevPadButtons[4] && prevPadButtons[5])) { 
             if (scene === 'PAUSE' || scene === 'GAMEOVER') {
                 returnToTitle();
+            }
+        }
+    }
+
+    // ショップ画面でのカーソル移動と決定
+    if (scene === 'SHOP') {
+        let up = isJustPressed('ArrowUp') || isJustPressed('KeyW') || isPadBtnJustPressed(12) || (padAxes[1] < -0.5 && prevPadAxes[1] >= -0.5);
+        let down = isJustPressed('ArrowDown') || isJustPressed('KeyS') || isPadBtnJustPressed(13) || (padAxes[1] > 0.5 && prevPadAxes[1] <= 0.5);
+        let decide = isJustPressed('Space') || isJustPressed('Enter') || isPadBtnJustPressed(0);
+        
+        if (up) {
+            shopSelectedIndex--;
+            if (shopSelectedIndex < 0) shopSelectedIndex = currentShopItems.length;
+            updateShopFocus();
+            playSound('select');
+        }
+        if (down) {
+            shopSelectedIndex++;
+            if (shopSelectedIndex > currentShopItems.length) shopSelectedIndex = 0;
+            updateShopFocus();
+            playSound('select');
+        }
+        if (decide) {
+            if (shopSelectedIndex < currentShopItems.length) {
+                buyItem(shopSelectedIndex);
+            } else {
+                startNextStage();
             }
         }
     }
@@ -707,28 +783,32 @@ function updateInput() {
 // Global Game State
 // ==========================================
 let canvas, ctx;
-let scene = 'TITLE'; // TITLE, PLAY, SHOP, GAMEOVER, PAUSE
+let scene = 'TITLE'; 
 let animFrameId;
 let lastTime = 0;
 let accumulator = 0;
+
+let shopSelectedIndex = 0;
 
 // 進行状況
 let currentStage = 1;
 let totalScore = 0;
 let stageStartTime = 0;
-let pauseStartTime = 0; // ポーズ時間計算用
+let pauseStartTime = 0; 
 
 // プレイヤーリソース
 let maxHp = 4;
 let hp = maxHp;
 let gems = 0;
 
-// アップグレード状態
+// アップグレード状態 (各0~3レベル)
 const upgrades = {
-    doubleJump: false,
-    shield: false,
-    magnet: false,
-    highJump: false
+    doubleJump: 0,
+    shield: 0,
+    magnet: 0,
+    highJump: 0,
+    converter: 0, 
+    regen: 0  
 };
 
 // 物理・ゲーム内変数
@@ -743,6 +823,11 @@ let shakeTime = 0;
 let shakeMag = 0;
 let lastPlatformX = 120; 
 let lastEnemyX = -100; 
+
+// マグマとコンボ
+let magmaY = 0;
+let comboCount = 0;
+let comboDisplayTimer = 0;
 
 // エンティティリスト
 let player;
@@ -773,11 +858,18 @@ function addShake(mag, timeFrames) {
     shakeTime = timeFrames;
 }
 
-function spawnParticles(x, y, count, color, speedBase=2) {
+// type: 'normal', 'speedline'
+function spawnParticles(x, y, count, color, speedBase=2, type='normal') {
     for(let i=0; i<count; i++) {
         let angle = Math.random() * Math.PI * 2;
         let speed = Math.random() * speedBase;
-        particles.push(new Particle(x, y, Math.cos(angle)*speed, Math.sin(angle)*speed, color));
+        let vx = Math.cos(angle)*speed;
+        let vy = Math.sin(angle)*speed;
+        if (type === 'speedline') {
+            vx = 0;
+            vy = -Math.random() * 5 - 5; // 上に向かうスピードライン
+        }
+        particles.push(new Particle(x, y, vx, vy, color, type));
     }
 }
 
@@ -807,20 +899,18 @@ class Player extends Entity {
         super(x, y, 12, 12);
         this.isStomping = false;
         this.invicibleFrames = 0;
-        this.jumpsLeft = upgrades.doubleJump ? 1 : 0;
+        this.jumpsLeft = upgrades.doubleJump; // Lv1=1回, Lv2=2回, Lv3=3回
     }
 
     update() {
         this.prevY = this.y;
 
-        // 移動 (Keyboard & Gamepad D-Pad/L-Stick)
         if (keys['ArrowLeft'] || keys['KeyA'] || padButtons[14] || padAxes[0] < -0.3) this.vx = -3.5;
         else if (keys['ArrowRight'] || keys['KeyD'] || padButtons[15] || padAxes[0] > 0.3) this.vx = 3.5;
         else this.vx *= 0.7; 
 
         this.vy += 0.25; 
 
-        // Stomp (Space or Pad-A(0))
         if ((isJustPressed('Space') || isPadBtnJustPressed(0)) && !this.isStomping && !isGoalReached) {
             this.isStomping = true;
             this.vy = 8;
@@ -828,7 +918,6 @@ class Player extends Entity {
             spawnParticles(this.x+this.w/2, this.y, 5, COLOR_FG, 1);
         }
 
-        // Double Jump (W/Up or Pad-X(2))
         if ((isJustPressed('ArrowUp') || isJustPressed('KeyW') || isPadBtnJustPressed(2)) && !isGoalReached) {
             if (this.jumpsLeft > 0) {
                 this.vy = -6;
@@ -847,8 +936,14 @@ class Player extends Entity {
         if (this.x > CW) this.x -= CW;
         if (this.x + this.w < 0) this.x += CW;
 
-        if (this.isStomping && Math.random() < 0.5) {
-            trails.push({x: this.x, y: this.y, w: this.w, h: this.h, life: 10, maxLife: 10, color: COLOR_RED});
+        // トレイルとスピードラインの強化
+        if (this.isStomping) {
+            trails.push({x: this.x, y: this.y, w: this.w, h: this.h, life: 15, maxLife: 15, color: COLOR_RED});
+            if (Math.random() < 0.6) {
+                spawnParticles(this.x + rand(0, this.w), this.y, 1, 'rgba(255,255,255,0.7)', 0, 'speedline');
+            }
+        } else if (Math.abs(this.vy) > 6) {
+            trails.push({x: this.x, y: this.y, w: this.w, h: this.h, life: 8, maxLife: 8, color: 'rgba(255,255,255,0.2)'});
         }
 
         if (this.invicibleFrames > 0) this.invicibleFrames--;
@@ -868,6 +963,9 @@ class Player extends Entity {
     draw(ctx) {
         if (this.invicibleFrames > 0 && Math.floor(Date.now() / 100) % 2 === 0) return; 
 
+        ctx.shadowBlur = this.isStomping || starInvincibleTimer > 0 || isInvincibleMode ? 15 : 0;
+        ctx.shadowColor = this.isStomping ? COLOR_RED : 'white';
+
         if (isInvincibleMode || starInvincibleTimer > 0) {
             ctx.fillStyle = 'hsl(' + ((Date.now() / 5) % 360) + ', 100%, 70%)'; 
         } else {
@@ -883,17 +981,19 @@ class Player extends Entity {
             ctx.fillRect(this.x, this.y, this.w, this.h);
         }
         
+        ctx.shadowBlur = 0; 
+
         ctx.fillStyle = COLOR_BG;
         let eyeXOffset = this.vx > 0.5 ? 6 : (this.vx < -0.5 ? 2 : 4);
         ctx.fillRect(this.x + eyeXOffset, this.y + 3, 2, 4);
         ctx.fillRect(this.x + eyeXOffset + 4, this.y + 3, 2, 4);
 
-        if (upgrades.shield) {
+        if (upgrades.shield > 0) {
             ctx.strokeStyle = COLOR_SHIELD;
             ctx.setLineDash([2, 2]);
-            ctx.lineWidth = 1;
+            ctx.lineWidth = upgrades.shield; // スタック数で太く
             ctx.beginPath();
-            ctx.arc(this.x + this.w/2, this.y + this.h/2, 12, 0, Math.PI*2);
+            ctx.arc(this.x + this.w/2, this.y + this.h/2, 12 + upgrades.shield, 0, Math.PI*2);
             ctx.stroke();
             ctx.setLineDash([]);
         }
@@ -903,12 +1003,13 @@ class Player extends Entity {
         if (isInvincibleMode || starInvincibleTimer > 0) return; 
         if (this.invicibleFrames > 0 || isGoalReached) return;
 
-        if (upgrades.shield) {
-            upgrades.shield = false; 
+        if (upgrades.shield > 0) {
+            upgrades.shield--; 
             this.invicibleFrames = 60;
             playSound('hit');
             spawnParticles(this.x+this.w/2, this.y+this.h/2, 20, COLOR_SHIELD, 3);
             addShake(5, 10);
+            updateHUD(); // シールド減ったのでUI更新
             return;
         }
 
@@ -920,6 +1021,8 @@ class Player extends Entity {
         this.invicibleFrames = 90;
         spawnParticles(this.x+this.w/2, this.y+this.h/2, 20, COLOR_RED, 4);
 
+        comboCount = 0; 
+
         if (hp <= 0) {
             gameOver();
         }
@@ -927,19 +1030,47 @@ class Player extends Entity {
 }
 
 class Platform extends Entity {
-    constructor(x, y, w, h, isGoal=false) {
+    constructor(x, y, w, h, type='normal') {
         super(x, y, w, h);
-        this.isGoal = isGoal;
+        this.type = type;
+        this.startX = x;
+        this.moveTime = Math.random() * 100;
+        this.crumbleState = 0; 
+        this.crumbleTimer = 0;
+    }
+    update() {
+        super.update();
+        if (this.type === 'moving') {
+            this.moveTime += 0.03 + (currentStage * 0.005);
+            this.vx = Math.cos(this.moveTime) * 1.5;
+        }
+        if (this.type === 'crumbling' && this.crumbleState === 1) {
+            this.crumbleTimer--;
+            this.x = this.startX + (Math.random() - 0.5) * 4; 
+            if (this.crumbleTimer <= 0) {
+                this.crumbleState = 2;
+                this.active = false;
+                spawnParticles(this.x+this.w/2, this.y+this.h/2, 10, '#885522', 2);
+            }
+        }
     }
     draw(ctx) {
-        if (this.isGoal) {
+        if (this.type === 'goal') {
             ctx.fillStyle = COLOR_RED;
             ctx.fillRect(this.x, this.y, this.w, this.h);
         } else {
-            ctx.strokeStyle = COLOR_FG;
+            if (this.type === 'crumbling') {
+                ctx.strokeStyle = '#885522';
+                ctx.fillStyle = this.crumbleState === 1 ? '#ff5500' : '#885522';
+            } else if (this.type === 'moving') {
+                ctx.strokeStyle = '#00aaff';
+                ctx.fillStyle = '#00aaff';
+            } else {
+                ctx.strokeStyle = COLOR_FG;
+                ctx.fillStyle = COLOR_FG;
+            }
             ctx.lineWidth = 1;
             ctx.strokeRect(this.x, this.y, this.w, this.h);
-            ctx.fillStyle = COLOR_FG;
             ctx.fillRect(this.x, this.y, this.w, 2);
         }
     }
@@ -1044,13 +1175,15 @@ class Item extends Entity {
         this.time += 0.1;
         this.y = this.baseY + Math.sin(this.time) * 3;
 
-        if (upgrades.magnet && player) {
+        if (upgrades.magnet > 0 && player) {
             let dx = (player.x + player.w/2) - (this.x + this.w/2);
             let dy = (player.y + player.h/2) - (this.y + this.h/2);
             let dist = Math.sqrt(dx*dx + dy*dy);
-            if (dist < 100) { 
-                this.x += (dx / dist) * 3;
-                this.baseY += (dy / dist) * 3;
+            let threshold = 100 + (upgrades.magnet * 50); // Lvl1:150, 2:200, 3:250
+            if (dist < threshold) { 
+                let spd = 3 + upgrades.magnet; // Lvl1:4, 2:5, 3:6
+                this.x += (dx / dist) * spd;
+                this.baseY += (dy / dist) * spd;
             }
         }
         super.update();
@@ -1077,13 +1210,15 @@ class StarItem extends Entity {
         this.time += 0.1;
         this.y = this.baseY + Math.sin(this.time) * 5;
         
-        if (upgrades.magnet && player) {
+        if (upgrades.magnet > 0 && player) {
             let dx = (player.x + player.w/2) - (this.x + this.w/2);
             let dy = (player.y + player.h/2) - (this.y + this.h/2);
             let dist = Math.sqrt(dx*dx + dy*dy);
-            if (dist < 100) { 
-                this.x += (dx / dist) * 3;
-                this.baseY += (dy / dist) * 3;
+            let threshold = 100 + (upgrades.magnet * 50); 
+            if (dist < threshold) { 
+                let spd = 3 + upgrades.magnet; 
+                this.x += (dx / dist) * spd;
+                this.baseY += (dy / dist) * spd;
             }
         }
         super.update();
@@ -1107,10 +1242,11 @@ class StarItem extends Entity {
 }
 
 class Particle {
-    constructor(x, y, vx, vy, color) {
+    constructor(x, y, vx, vy, color, type='normal') {
         this.x = x; this.y = y;
         this.vx = vx; this.vy = vy;
         this.color = color;
+        this.type = type;
         this.life = 20 + Math.random() * 10;
         this.size = 2 + Math.random() * 3;
         this.active = true;
@@ -1118,7 +1254,9 @@ class Particle {
     update() {
         this.x += this.vx;
         this.y += this.vy;
-        this.vy += 0.1; 
+        if (this.type === 'normal') {
+            this.vy += 0.1; 
+        }
         this.life--;
         if(this.life <= 0) this.active = false;
         
@@ -1128,7 +1266,11 @@ class Particle {
     draw(ctx) {
         ctx.fillStyle = this.color;
         ctx.globalAlpha = Math.max(0, this.life / 30);
-        ctx.fillRect(this.x, this.y, this.size, this.size);
+        if (this.type === 'speedline') {
+            ctx.fillRect(this.x, this.y, 1, 10 + Math.abs(this.vy));
+        } else {
+            ctx.fillRect(this.x, this.y, this.size, this.size);
+        }
         ctx.globalAlpha = 1.0;
     }
 }
@@ -1140,6 +1282,18 @@ class Particle {
 function initGame() {
     canvas = document.getElementById('gameCanvas');
     ctx = canvas.getContext('2d', { alpha: false }); 
+    
+    // 多重スクロール用の星を初期生成
+    bgStars = [];
+    for(let i=0; i<150; i++) {
+        bgStars.push({
+            x: Math.random() * CW,
+            y: Math.random() * CH,
+            s: Math.random() * 0.4 + 0.1, // スクロール速度の係数 (パララックス)
+            c: Math.random() < 0.5 ? '#555' : '#888'
+        });
+    }
+
     loadRanking();
 }
 
@@ -1164,10 +1318,13 @@ function startGame() {
     hp = maxHp;
     gems = 0;
     
-    upgrades.doubleJump = false;
-    upgrades.shield = false;
-    upgrades.magnet = false;
-    upgrades.highJump = false;
+    // リセット (全レベル0)
+    upgrades.doubleJump = 0;
+    upgrades.shield = 0;
+    upgrades.magnet = 0;
+    upgrades.highJump = 0;
+    upgrades.converter = 0;
+    upgrades.regen = 0;
 
     setupStage();
     lastTime = performance.now();
@@ -1198,7 +1355,6 @@ function pauseGame() {
 function resumeGame() {
     scene = 'PLAY';
     if (actx) actx.resume();
-    // ポーズしていた時間分、開始時間を進めてタイマーのズレを防ぐ
     stageStartTime += (Date.now() - pauseStartTime);
     document.getElementById('ui-pause').classList.add('hidden');
 }
@@ -1214,15 +1370,19 @@ function setupStage() {
     trails = [];
     bullets = []; 
     
-    platforms.push(new Platform(0, CH - 10, CW, 10));
+    platforms.push(new Platform(0, CH - 10, CW, 10, 'normal'));
     lastPlatformX = CW / 2;
 
     cameraY = 0;
     nextGenY = CH - 10; 
     
-    targetGoalY = -(3500 + currentStage * 800); 
+    let stageLen = 3500;
+    targetGoalY = -(stageLen + currentStage * 800); 
     isGoalReached = false;
     lastEnemyX = -100; 
+
+    magmaY = cameraY + CH + 300;
+    comboCount = 0;
 
     stageStartTime = Date.now();
 }
@@ -1242,15 +1402,15 @@ function generateChunk() {
         if (nextGenY < targetGoalY) {
             let gw = 60;
             let gx = CW / 2 - gw / 2;
-            platforms.push(new Platform(gx, targetGoalY, gw, 10));
+            platforms.push(new Platform(gx, targetGoalY, gw, 10, 'goal'));
             crown = new Crown(CW / 2 - 8, targetGoalY - 24);
             nextGenY = -Infinity; 
             break;
         }
 
         let isSafeZone = nextGenY > -150; 
-        let isTutorialHalf = isTutorial && nextGenY < targetGoalY / 2; // チュートリアルの後半
-        let isEnemyStep = isTutorial || isSafeZone ? false : Math.random() < (0.05 + diff * 0.25);
+        let isTutorialHalf = isTutorial && nextGenY < targetGoalY / 2;
+        let isEnemyStep = (!isTutorial && !isSafeZone) ? Math.random() < (0.25 + diff * 0.35) : false;
         
         let dir = Math.random() < 0.5 ? 1 : -1;
         let xOffset = rand(40, 80) * dir;
@@ -1282,11 +1442,17 @@ function generateChunk() {
             if (px < 0) px = 0;
             if (px + pw > CW) px = CW - pw;
 
-            platforms.push(new Platform(px, nextGenY, pw, 10));
+            let pType = 'normal';
+            if (currentStage >= 3 && !isSafeZone) {
+                let r = Math.random();
+                if (r < 0.15 + diff*0.1) pType = 'moving';
+                else if (r < 0.3 + diff*0.1) pType = 'crumbling';
+            }
+
+            platforms.push(new Platform(px, nextGenY, pw, 10, pType));
             lastPlatformX = px + pw / 2;
 
-            // チュートリアル後半は敵を少し出現させる
-            let enemyProb = isTutorial ? (isTutorialHalf ? 0.25 : 0.05) : 0.15 + diff * 0.35; 
+            let enemyProb = isTutorial ? (isTutorialHalf ? 0.35 : 0.15) : 0.25 + diff * 0.35; 
             if (!isSafeZone && Math.random() < enemyProb) { 
                 let typeRand = Math.random();
                 let type = 'walk';
@@ -1294,7 +1460,6 @@ function generateChunk() {
                 if (!isTutorial) {
                     let sProb = currentStage >= 2 ? (0.05 + diff * 0.15) : 0; 
                     let fProb = 0.2 + diff * 0.2;   
-                    
                     if (typeRand < sProb) type = 'shooter'; 
                     else if (typeRand < sProb + fProb) type = 'fly';
                 }
@@ -1335,28 +1500,53 @@ function updatePlay() {
     player.update();
     if (crown) crown.update();
 
-    if (player.y < cameraY + CH / 2) {
-        cameraY = player.y - CH / 2;
+    let magmaSpeed = 0.5 + (currentStage * 0.15);
+    magmaY -= magmaSpeed;
+
+    // 修正：カメラの滑らかな追従（Lerp）による画面酔い対策
+    let targetCameraY = cameraY;
+    if (player.y < cameraY + CH * 0.4) {
+        targetCameraY = player.y - CH * 0.4;
+    } else if (player.y > cameraY + CH * 0.7) {
+        targetCameraY = player.y - CH * 0.7;
+    }
+    cameraY += (targetCameraY - cameraY) * 0.15; // 0.15の速度で滑らかに追いつく
+
+    if (magmaY > cameraY + CH + 500) {
+        magmaY = cameraY + CH + 500;
     }
 
-    if (player.y > cameraY + CH && !isGoalReached) {
-        player.damage();
-        if (hp > 0) {
-            player.y = cameraY + CH - 40;
-            player.vy = -12;
-            playSound('jump');
-            let pw = 80;
-            let safeX = Math.max(0, Math.min(CW - pw, player.x - pw/2));
-            platforms.push(new Platform(safeX, cameraY + CH - 10, pw, 10));
+    // ダイナミックBGMフィルター（マグマが近づくと音がこもる）
+    if (biquadFilter) {
+        let magmaDist = magmaY - player.y;
+        if (magmaDist < 300) {
+            let targetFreq = Math.max(300, (magmaDist / 300) * 4000);
+            biquadFilter.frequency.setTargetAtTime(targetFreq, actx.currentTime, 0.1);
+        } else {
+            biquadFilter.frequency.setTargetAtTime(20000, actx.currentTime, 0.1);
         }
     }
 
-    const isVisible = (y) => y < cameraY + CH + 100;
+    if (player.y > magmaY && !isGoalReached) {
+        player.damage();
+        if (hp > 0) {
+            player.y = magmaY - 40;
+            player.vy = -14;
+            playSound('jump');
+            let pw = 80;
+            let safeX = Math.max(0, Math.min(CW - pw, player.x - pw/2));
+            platforms.push(new Platform(safeX, player.y + 20, pw, 10, 'normal'));
+        }
+    }
 
-    platforms = platforms.filter(p => isVisible(p.y));
-    enemies = enemies.filter(e => isVisible(e.y) && e.active);
-    items = items.filter(i => isVisible(i.y) && i.active);
-    bullets = bullets.filter(b => isVisible(b.y) && b.active); 
+    // 修正：画面から見えなくなった足場ではなく、マグマに飲まれた足場を消去する。
+    // これにより、落ちてしまった際にも過去の足場を使って登り直すことができる。
+    const isAlive = (y) => y < magmaY + 100;
+
+    platforms = platforms.filter(p => p.active && isAlive(p.y));
+    enemies = enemies.filter(e => e.active && isAlive(e.y));
+    items = items.filter(i => i.active && isAlive(i.y));
+    bullets = bullets.filter(b => b.active && isAlive(b.y)); 
 
     platforms.forEach(p => p.update());
     enemies.forEach(e => e.update());
@@ -1378,8 +1568,18 @@ function updatePlay() {
         if (player.vy > 0 && player.prevY + player.h <= p.prevY + 1) {
             if (checkAABB(player, p)) {
                 player.y = p.y - player.h;
+                
+                if (p.type === 'moving') {
+                    player.x += p.vx;
+                }
+                if (p.type === 'crumbling' && p.crumbleState === 0) {
+                    p.crumbleState = 1;
+                    p.crumbleTimer = 30; 
+                }
+
                 if (player.isStomping) {
-                    player.vy = -7.5; 
+                    // スーパーストンプLvに応じて着地ジャンプ力がアップ
+                    player.vy = -7.5 - (upgrades.highJump * 1.0); 
                     addShake(5, 5);
                     spawnParticles(player.x+player.w/2, player.y+player.h, 10, COLOR_FG);
                     playSound('land');
@@ -1388,7 +1588,9 @@ function updatePlay() {
                     playSound('jump');
                 }
                 player.isStomping = false;
-                if(upgrades.doubleJump) player.jumpsLeft = 1; 
+                player.jumpsLeft = upgrades.doubleJump; // Lv分のジャンプ回数を付与
+                
+                comboCount = 0;
             }
         }
     }
@@ -1399,38 +1601,37 @@ function updatePlay() {
             if (starInvincibleTimer > 0 || isInvincibleMode) {
                 e.active = false;
                 spawnParticles(e.x+e.w/2, e.y+e.h/2, 20, COLOR_RED, 3);
-                playSound('hit');
-                totalScore += 100 * currentStage;
+                comboCount++;
+                comboDisplayTimer = 60;
+                playSound('hit', comboCount);
+                totalScore += 100 * comboCount;
                 if (player.isStomping) {
-                    player.vy = upgrades.highJump ? -12 : -9;
+                    player.vy = -8 - (upgrades.highJump * 1.5);
                     addShake(15, 8);
                 } else {
                     player.vy = -5.5; 
                 }
                 player.isStomping = false;
-                if(upgrades.doubleJump) player.jumpsLeft = 1;
+                player.jumpsLeft = upgrades.doubleJump;
             } else if (player.vy > 0 && player.prevY + player.h <= e.prevY + e.h/2) {
                 e.active = false;
                 spawnParticles(e.x+e.w/2, e.y+e.h/2, 20, COLOR_RED, 3);
-                playSound('hit');
+                
+                comboCount++;
+                comboDisplayTimer = 60;
+                playSound('hit', comboCount);
                 hitStopFrames = 5; 
                 
                 if (player.isStomping) {
-                    player.vy = upgrades.highJump ? -12 : -9;
+                    player.vy = -8 - (upgrades.highJump * 1.5);
                     addShake(15, 8);
-                    totalScore += 100 * currentStage;
-                    for(let k=0; k<3; k++) {
-                        let drop = new Item(e.x, e.y);
-                        drop.vy = -rand(2, 5);
-                        drop.vx = rand(-2, 2);
-                        items.push(drop);
-                    }
+                    totalScore += 100 * comboCount;
                 } else {
                     player.vy = -5.5; 
-                    totalScore += 50;
+                    totalScore += 50 * comboCount;
                 }
                 player.isStomping = false;
-                if(upgrades.doubleJump) player.jumpsLeft = 1;
+                player.jumpsLeft = upgrades.doubleJump;
             } else {
                 player.damage();
             }
@@ -1460,7 +1661,17 @@ function updatePlay() {
                 totalScore += 500;
             } else {
                 gems++;
-                totalScore += 10;
+                let gain = 10;
+                
+                // コンバーターLvに応じたスコア倍率 (Lv1:x2, Lv2:x3, Lv3:x4)
+                if (upgrades.converter > 0 && hp >= maxHp) {
+                    gain *= (1 + upgrades.converter); 
+                }
+                if (comboCount > 0) {
+                    gain += comboCount * 5;
+                }
+                totalScore += gain;
+                
                 playSound('gem');
                 spawnParticles(i.x+i.w/2, i.y+i.h/2, 5, COLOR_GEM, 2);
             }
@@ -1473,6 +1684,14 @@ function updatePlay() {
 function drawPlay(ctx) {
     ctx.fillStyle = COLOR_BG;
     ctx.fillRect(0, 0, CW, CH);
+
+    // 多重スクロール星空の描画
+    bgStars.forEach(star => {
+        let drawY = (star.y - cameraY * star.s) % CH;
+        if (drawY < 0) drawY += CH;
+        ctx.fillStyle = star.c;
+        ctx.fillRect(star.x, drawY, 2, 2);
+    });
 
     ctx.save();
     
@@ -1493,17 +1712,48 @@ function drawPlay(ctx) {
 
     platforms.forEach(p => p.draw(ctx));
     if (crown) crown.draw(ctx); 
+    
+    // アイテム類（グロー効果）
+    ctx.shadowBlur = 10;
+    ctx.shadowColor = COLOR_GEM;
     items.forEach(i => i.draw(ctx));
+    
+    ctx.shadowBlur = 8;
+    ctx.shadowColor = COLOR_BULLET;
+    bullets.forEach(b => b.draw(ctx));
+    ctx.shadowBlur = 0;
+
     enemies.forEach(e => e.draw(ctx));
-    bullets.forEach(b => b.draw(ctx)); 
     particles.forEach(p => p.draw(ctx));
     player.draw(ctx);
+    
+    if (comboCount >= 2 && comboDisplayTimer > 0) {
+        comboDisplayTimer--;
+        ctx.fillStyle = COLOR_FG;
+        ctx.font = 'bold 12px monospace';
+        ctx.fillText(comboCount + ' COMBO!', player.x - 20, player.y - 15 - (60 - comboDisplayTimer)*0.3);
+    }
+
+    let my = Math.max(magmaY, cameraY - CH);
+    if (my < cameraY + CH) {
+        ctx.shadowBlur = 20;
+        ctx.shadowColor = '#ff5500';
+        ctx.fillStyle = 'rgba(229, 46, 46, 0.8)'; 
+        ctx.fillRect(0, my, CW, cameraY + CH - my + 100);
+        ctx.fillStyle = 'rgba(255, 100, 0, 0.9)'; 
+        for(let i=0; i<CW; i+=20) {
+            let offset = Math.sin((Date.now()/300) + i) * 6;
+            ctx.fillRect(i, my - 5 + offset, 20, 10);
+        }
+        ctx.shadowBlur = 0;
+    }
 
     ctx.restore();
 }
 
 function updateHUD() {
     document.getElementById('hud-stage').innerText = currentStage;
+    
     let hpStr = '';
     for(let i=0; i<maxHp; i++) {
         hpStr += (i < hp) ? '♥' : '♡';
@@ -1515,18 +1765,36 @@ function updateHUD() {
     let elapsed = Math.floor((Date.now() - stageStartTime)/1000);
     document.getElementById('hud-time').innerText = elapsed + "s";
 
-    document.getElementById('icon-shield').className = upgrades.shield ? 'icon-active' : 'icon-inactive';
-    document.getElementById('icon-double').className = upgrades.doubleJump ? 'icon-active' : 'icon-inactive';
-    document.getElementById('icon-magnet').className = upgrades.magnet ? 'icon-active' : 'icon-inactive';
-    document.getElementById('icon-stomp').className = upgrades.highJump ? 'icon-active' : 'icon-inactive';
+    // アイコンの点灯とレベルバッジの表示
+    const upgradeKeys = ['shield', 'doubleJump', 'magnet', 'highJump', 'converter', 'regen'];
+    upgradeKeys.forEach(key => {
+        let elIcon = document.getElementById('icon-' + key);
+        let elLvl = document.getElementById('lvl-' + key);
+        if (upgrades[key] > 0) {
+            elIcon.className = 'icon-active';
+            elLvl.classList.remove('hidden');
+            elLvl.innerText = upgrades[key];
+        } else {
+            elIcon.className = 'icon-inactive';
+            elLvl.classList.add('hidden');
+        }
+    });
 }
 
 function stageClear() {
     stopBGM();
+    if (biquadFilter) biquadFilter.frequency.value = 20000; 
 
     player.vy = -10; 
     player.invicibleFrames = 180; 
     
+    // リジェネレーション（HPが減っていればストックを消費して回復）
+    if (upgrades.regen > 0 && hp < maxHp) {
+        let healAmount = Math.min(upgrades.regen, maxHp - hp);
+        hp += healAmount;
+        upgrades.regen -= healAmount;
+    }
+
     for(let i=0; i<100; i++) {
         let colors = ['#ff0000', '#00ff00', '#0000ff', '#ffff00', '#ff00ff', '#00ffff'];
         let c = colors[Math.floor(Math.random()*colors.length)];
@@ -1549,6 +1817,7 @@ function stageClear() {
 function gameOver() {
     scene = 'GAMEOVER';
     stopBGM();
+    if (biquadFilter) biquadFilter.frequency.value = 20000; 
     playSound('damage');
     
     document.getElementById('ui-gameover').classList.remove('hidden');
@@ -1579,11 +1848,13 @@ function returnToTitle() {
 // Shop System
 // ==========================================
 const SHOP_ITEMS = [
-    { id: 'hp', name: 'HP RECOVER & MAX UP', cost: 50, desc: 'Heals completely & +1 Max HP' },
-    { id: 'shield', name: 'SHIELD', cost: 30, desc: 'Blocks 1 hit/fall in next stage' },
-    { id: 'doubleJump', name: 'DOUBLE JUMP', cost: 60, desc: 'Press Up/W in air to jump again' },
-    { id: 'magnet', name: 'GEM MAGNET', cost: 40, desc: 'Attracts nearby gems' },
-    { id: 'highJump', name: 'SUPER STOMP', cost: 70, desc: 'Jump much higher after stomping' }
+    { id: 'hp', name: 'HP RECOVER & MAX UP', baseCost: 40, costScale: 0, desc: 'Heals completely & +1 Max HP' },
+    { id: 'shield', name: 'SHIELD', baseCost: 30, costScale: 20, desc: 'Blocks hits/falls (Consumes stock)' },
+    { id: 'doubleJump', name: 'DOUBLE JUMP', baseCost: 80, costScale: 40, desc: '+1 Max Mid-Air Jump' },
+    { id: 'magnet', name: 'GEM MAGNET', baseCost: 50, costScale: 25, desc: 'Increases gem attract range' },
+    { id: 'highJump', name: 'SUPER STOMP', baseCost: 50, costScale: 30, desc: 'Jump even higher after stomping' },
+    { id: 'converter', name: 'GEM CONVERTER', baseCost: 80, costScale: 40, desc: '+1x score multiplier at MAX HP' },
+    { id: 'regen', name: 'REGENERATION', baseCost: 100, costScale: 50, desc: 'Auto-heals at stage clear (Consumes stock)' }
 ];
 
 let currentShopItems = [];
@@ -1594,11 +1865,9 @@ function openShop() {
     document.getElementById('shop-stage').innerText = currentStage;
     
     let available = SHOP_ITEMS.filter(item => {
-        if (item.id === 'doubleJump' && upgrades.doubleJump) return false;
-        if (item.id === 'magnet' && upgrades.magnet) return false;
-        if (item.id === 'highJump' && upgrades.highJump) return false;
-        if (item.id === 'shield' && upgrades.shield) return false;
-        return true;
+        if (item.id === 'hp') return true;
+        // 3個(Lv3)持っている時はショップに並ばない
+        return (upgrades[item.id] || 0) < 3;
     });
 
     for (let i = available.length - 1; i > 0; i--) {
@@ -1606,8 +1875,23 @@ function openShop() {
         [available[i], available[j]] = [available[j], available[i]];
     }
     
-    currentShopItems = available.slice(0, 3).map(item => ({...item, sold: false}));
+    currentShopItems = available.slice(0, 3).map(item => {
+        let currentLvl = (item.id === 'hp') ? 0 : upgrades[item.id];
+        let currentCost = item.baseCost + (item.costScale * currentLvl);
+        
+        let displayName = item.name;
+        if (item.id !== 'hp') {
+            if (item.id === 'shield' || item.id === 'regen') {
+                displayName += ` (Stock:${currentLvl})`;
+            } else {
+                displayName += ` Lv.${currentLvl + 1}`;
+            }
+        }
+        
+        return { ...item, cost: currentCost, displayName: displayName, sold: false };
+    });
 
+    shopSelectedIndex = 0;
     renderShopItems();
 }
 
@@ -1625,7 +1909,7 @@ function renderShopItems() {
         
         const info = document.createElement('div');
         info.className = 'shop-item-info';
-        info.innerHTML = `<div class="shop-item-title">${item.name}</div><div class="shop-item-desc">${item.desc}</div>`;
+        info.innerHTML = `<div class="shop-item-title">${item.displayName}</div><div class="shop-item-desc">${item.desc}</div>`;
         
         const btn = document.createElement('button');
         btn.className = 'btn';
@@ -1633,20 +1917,61 @@ function renderShopItems() {
         btn.style.padding = '8px 12px';
         
         if (item.sold) {
-            btn.innerText = 'SOLD OUT';
+            btn.innerText = 'SOLD';
             btn.disabled = true;
         } else {
             btn.innerText = item.cost + ' G';
             if (gems < item.cost) {
                 btn.disabled = true;
             }
-            btn.onclick = () => buyItem(index);
+            btn.onclick = (e) => {
+                shopSelectedIndex = index;
+                updateShopFocus();
+                buyItem(index);
+            };
         }
+
+        // マウスホバーでフォーカスを合わせる
+        div.onmouseenter = () => {
+            shopSelectedIndex = index;
+            updateShopFocus();
+        };
 
         div.appendChild(info);
         div.appendChild(btn);
         list.appendChild(div);
     });
+
+    // NEXT STAGEボタンのホバー設定
+    let nextBtn = document.getElementById('btn-next-stage');
+    if (nextBtn) {
+        nextBtn.onmouseenter = () => {
+            shopSelectedIndex = currentShopItems.length;
+            updateShopFocus();
+        };
+    }
+
+    updateShopFocus();
+}
+
+function updateShopFocus() {
+    const items = document.querySelectorAll('.shop-item');
+    items.forEach((item, index) => {
+        if (index === shopSelectedIndex) {
+            item.classList.add('focused');
+        } else {
+            item.classList.remove('focused');
+        }
+    });
+    
+    const nextBtn = document.getElementById('btn-next-stage');
+    if (nextBtn) {
+        if (shopSelectedIndex === currentShopItems.length) {
+            nextBtn.classList.add('focused');
+        } else {
+            nextBtn.classList.remove('focused');
+        }
+    }
 }
 
 function buyItem(index) {
@@ -1658,23 +1983,11 @@ function buyItem(index) {
         item.sold = true;
         playSound('buy');
         
-        switch(item.id) {
-            case 'hp':
-                maxHp++;
-                hp = maxHp;
-                break;
-            case 'shield':
-                upgrades.shield = true;
-                break;
-            case 'doubleJump':
-                upgrades.doubleJump = true;
-                break;
-            case 'magnet':
-                upgrades.magnet = true;
-                break;
-            case 'highJump':
-                upgrades.highJump = true;
-                break;
+        if (item.id === 'hp') {
+            maxHp++;
+            hp = maxHp;
+        } else {
+            upgrades[item.id]++;
         }
         
         updateHUD();
