@@ -11,7 +11,7 @@
             --bg-color: #050505;
             --fg-color: #ffffff;
             --accent-color: #e52e2e;
-            --gem-color: #33ffcc; /* エメラルドに変更 */
+            --gem-color: #33ffcc; 
         }
 
         body, html {
@@ -23,7 +23,7 @@
             display: flex;
             justify-content: center;
             align-items: center;
-            font-family: 'Courier New', Courier, monospace; /* レトロな等幅フォント */
+            font-family: 'Courier New', Courier, monospace; 
             overflow: hidden;
             touch-action: none;
         }
@@ -32,7 +32,7 @@
             display: flex;
             flex-direction: column;
             width: 100%;
-            max-width: 480px; /* PCでの最大幅 */
+            max-width: 480px; 
             height: 100%;
             max-height: 720px;
             background-color: var(--bg-color);
@@ -57,6 +57,7 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
+            font-size: 14px;
         }
         .header-icons {
             display: flex;
@@ -82,8 +83,8 @@
             width: 100%;
             height: 100%;
             object-fit: contain;
-            image-rendering: pixelated; /* Chrome/Safari */
-            image-rendering: crisp-edges; /* Firefox */
+            image-rendering: pixelated; 
+            image-rendering: crisp-edges; 
         }
 
         /* UIオーバーレイ */
@@ -128,6 +129,7 @@
             cursor: pointer;
             text-transform: uppercase;
             transition: all 0.2s;
+            position: relative;
         }
 
         .btn:hover:not(:disabled) {
@@ -142,7 +144,7 @@
         }
 
         #ranking-board {
-            margin-top: 30px;
+            margin-top: 20px;
             border: 1px solid #555;
             padding: 15px 20px; 
             width: 85%;
@@ -172,11 +174,34 @@
         .controls-info {
             font-size: 14px; 
             color: #ccc;
-            margin-top: 25px;
+            margin-top: 20px;
             border-top: 1px solid #444;
-            padding-top: 15px;
+            padding-top: 10px;
             line-height: 1.6;
         }
+
+        /* 音量スライダー */
+        .volume-container {
+            margin-top: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 16px;
+            color: var(--fg-color);
+        }
+        .vol-slider {
+            width: 120px;
+            cursor: pointer;
+            accent-color: var(--accent-color);
+        }
+
+        /* デバイスごとのUI表示切り替え */
+        .kbd-only { display: inline; }
+        .pad-only { display: none; }
+        .pad-badge { font-size: 12px; color: #aaa; margin-left: 5px; }
+        
+        body.pad-mode .kbd-only { display: none; }
+        body.pad-mode .pad-only { display: inline; }
 
     </style>
 </head>
@@ -185,14 +210,14 @@
 <div id="app-wrapper">
     <!-- ヘッダーUI -->
     <div id="header-ui" class="hidden">
-        <div class="header-row" style="font-size: 14px;">
+        <div class="header-row">
             <div>STG:<span id="hud-stage" style="margin-left:2px; margin-right:5px; color:var(--accent-color);"></span></div>
             <div>HP:<span id="hud-hp" class="hud-red" style="margin-left:2px; margin-right:5px;"></span></div>
             <div>GEM:<span id="hud-gems" class="hud-gem" style="margin-left:2px; margin-right:5px;"></span></div>
             <div>SCR:<span id="hud-score" style="margin-left:2px; margin-right:5px;"></span></div>
             <div>TIME:<span id="hud-time" style="margin-left:2px;"></span></div>
         </div>
-        <div class="header-row">
+        <div class="header-row" style="margin-top: 8px;">
             <div class="header-icons">
                 <span id="icon-shield" class="icon-inactive" title="Shield">🛡️</span>
                 <span id="icon-double" class="icon-inactive" title="Double Jump">⏫</span>
@@ -210,7 +235,7 @@
         <div id="ui-title" class="ui-layer">
             <h1 class="title">OVERWELL</h1>
             <p>Ascend to the top.</p>
-            <button class="btn" onclick="startGame()">START GAME</button>
+            <button class="btn" onclick="startGame()">START GAME <span class="pad-only pad-badge">[START]</span></button>
             
             <div id="ranking-board">
                 <div style="text-align:center; margin-bottom:10px; color:var(--accent-color);">-- TOP SCORES --</div>
@@ -218,12 +243,26 @@
             </div>
 
             <div class="controls-info">
-                [A][D] / [←][→] : Move<br>
-                [ENTER] : Start / Restart<br>
-                [SPACE] : Stomp (急降下)<br>
-                [W] / [↑] : Double Jump<br>
-                <br>
-                🛡️Shield ⏫Double 🧲Magnet 💥Stomp
+                <div class="kbd-only">
+                    [A][D] / [←][→] : Move<br>
+                    [ENTER] : Start / Restart<br>
+                    [SPACE] : Stomp<br>
+                    [W] / [↑] : Double Jump<br>
+                    [ESC] : Pause Menu
+                </div>
+                <div class="pad-only">
+                    D-Pad / L-Stick : Move<br>
+                    [START] : Start / Pause Menu<br>
+                    [A] : Stomp<br>
+                    [X] : Double Jump<br>
+                    [Y] : Restart / [B] : Resume<br>
+                    [L]+[R] : Title
+                </div>
+            </div>
+            
+            <div class="volume-container">
+                <span>🔊 VOL</span>
+                <input type="range" class="vol-slider" min="0" max="4" step="1" value="2">
             </div>
         </div>
 
@@ -236,7 +275,22 @@
                 <!-- jsで動的生成 -->
             </div>
 
-            <button class="btn" onclick="startNextStage()">NEXT STAGE</button>
+            <button class="btn" onclick="startNextStage()">NEXT STAGE <span class="pad-only pad-badge">[START]</span></button>
+        </div>
+
+        <!-- Pause Screen -->
+        <div id="ui-pause" class="ui-layer hidden">
+            <h1 class="title" style="color:#aaa; font-size:48px;">PAUSE</h1>
+            <div style="display: flex; flex-direction: column; width: 60%; max-width: 220px; margin-top: 10px;">
+                <button class="btn" style="margin: 8px 0; padding: 12px;" onclick="resumeGame()">RESUME <span class="pad-only pad-badge">[B] / [START]</span></button>
+                <button class="btn" style="margin: 8px 0; padding: 12px;" onclick="restartGame()">RESTART <span class="pad-only pad-badge">[Y]</span></button>
+                <button class="btn" style="margin: 8px 0; padding: 12px;" onclick="returnToTitle()">TITLE <span class="pad-only pad-badge">[L]+[R]</span></button>
+            </div>
+            
+            <div class="volume-container">
+                <span>🔊 VOL</span>
+                <input type="range" class="vol-slider" min="0" max="4" step="1" value="2">
+            </div>
         </div>
 
         <!-- Game Over Screen -->
@@ -244,9 +298,9 @@
             <h1 class="title" style="color:#777;">GAME OVER</h1>
             <p>STAGE REACHED: <span id="go-stage" class="hud-red"></span></p>
             <p>TOTAL SCORE: <span id="go-score" class="hud-gem"></span></p>
-            <div style="margin-top: 15px;">
-                <button class="btn" onclick="restartGame()">RESTART</button>
-                <button class="btn" onclick="returnToTitle()">TITLE</button>
+            <div style="margin-top: 15px; display: flex; flex-direction: column; width: 60%; max-width: 220px;">
+                <button class="btn" style="margin: 8px 0; padding: 12px;" onclick="restartGame()">RESTART <span class="pad-only pad-badge">[Y] / [START]</span></button>
+                <button class="btn" style="margin: 8px 0; padding: 12px;" onclick="returnToTitle()">TITLE <span class="pad-only pad-badge">[L]+[R]</span></button>
             </div>
         </div>
     </div>
@@ -279,25 +333,52 @@ const STEP = 1/FPS;
 // ==========================================
 const AudioContext = window.AudioContext || window.webkitAudioContext;
 let actx = null;
-let bgmOscillators = []; // BGM用のオシレータを管理して即時停止できるようにする
+let masterGain = null;
+let bgmOscillators = []; 
+
+// 音量の初期設定 (localStorageから取得)
+let masterVolume = parseFloat(localStorage.getItem('overwell_vol'));
+if (isNaN(masterVolume)) masterVolume = 0.5; // デフォルト50%
 
 function initAudio() {
     if (!actx) {
         actx = new AudioContext();
+        masterGain = actx.createGain();
+        masterGain.gain.value = masterVolume;
+        masterGain.connect(actx.destination);
     }
-    if (actx.state === 'suspended') {
+    if (actx.state === 'suspended' && scene !== 'PAUSE') {
         actx.resume();
     }
 }
 
+// 5段階音量スライダーのイベント設定
+const volSliders = document.querySelectorAll('.vol-slider');
+volSliders.forEach(slider => {
+    // 0~1の音量を 0~4の5段階表記に変換
+    slider.value = Math.round(masterVolume * 4);
+    
+    slider.addEventListener('input', (e) => {
+        let val = parseInt(e.target.value); // 0, 1, 2, 3, 4
+        masterVolume = val * 0.25; // 0, 0.25, 0.5, 0.75, 1.0 に変換
+        localStorage.setItem('overwell_vol', masterVolume);
+        
+        if (masterGain) {
+            masterGain.gain.value = masterVolume;
+        }
+        // 他のスライダーと同期
+        volSliders.forEach(s => { if(s !== e.target) s.value = val; });
+    });
+});
+
 function playSound(type) {
-    if (!actx) return;
+    if (!actx || !masterGain || masterVolume === 0) return;
     const osc = actx.createOscillator();
     const gain = actx.createGain();
     const now = actx.currentTime;
     
     osc.connect(gain);
-    gain.connect(actx.destination);
+    gain.connect(masterGain); 
 
     switch(type) {
         case 'jump': 
@@ -380,7 +461,7 @@ function playSound(type) {
                 o.type = 'square';
                 o.frequency.value = note.f;
                 o.connect(g);
-                g.connect(actx.destination);
+                g.connect(masterGain);
                 g.gain.setValueAtTime(0.1, now + note.t);
                 g.gain.exponentialRampToValueAtTime(0.01, now + note.t + 0.1);
                 o.start(now + note.t);
@@ -402,7 +483,7 @@ function playSound(type) {
                 o.type = 'triangle';
                 o.frequency.value = note.f;
                 o.connect(g);
-                g.connect(actx.destination);
+                g.connect(masterGain);
                 
                 let dur = (i === goalNotes.length - 1) ? 1.0 : 0.15;
                 g.gain.setValueAtTime(0.15, now + note.t);
@@ -426,10 +507,9 @@ function clearBGM() {
 }
 
 function scheduleBGM() {
-    if (!actx || !isBGMPlaying) return;
+    if (!actx || !masterGain || !isBGMPlaying || masterVolume === 0) return;
     const now = actx.currentTime;
     
-    // スケジュールのバッファを細かくして、BGM変更が即座に反映されるようにする
     while (bgmNextScheduleTime < now + 0.5) {
         let notes = [];
         let duration = 0;
@@ -437,18 +517,16 @@ function scheduleBGM() {
         let vol = 0.04;
 
         if (starInvincibleTimer > 0) {
-            // 無敵状態BGM（ハイテンポなアルペジオ）
             notes = [
-                {time: 0, freq: 523.25}, // C5
-                {time: 0.125, freq: 659.25}, // E5
-                {time: 0.25, freq: 783.99}, // G5
-                {time: 0.375, freq: 1046.50} // C6
+                {time: 0, freq: 523.25}, 
+                {time: 0.125, freq: 659.25}, 
+                {time: 0.25, freq: 783.99}, 
+                {time: 0.375, freq: 1046.50} 
             ];
             duration = 0.5;
             type = 'square';
             vol = 0.05;
         } else {
-            // 通常BGM
             const phase = Math.floor(bgmNextScheduleTime) % 2; 
             if (phase === 0) {
                 notes = [
@@ -476,7 +554,7 @@ function scheduleBGM() {
             osc.type = type;
             osc.frequency.value = note.freq;
             osc.connect(gain);
-            gain.connect(actx.destination);
+            gain.connect(masterGain);
             
             let playTime = starInvincibleTimer > 0 ? 0.1 : 0.2;
             gain.gain.setValueAtTime(vol, bgmNextScheduleTime + note.time);
@@ -502,14 +580,59 @@ function stopBGM() {
 }
 
 // ==========================================
-// Input Handling
+// Input Handling & Gamepad
 // ==========================================
 const keys = {};
 let prevKeys = {};
 
+// Gamepad API
+let padButtons = [];
+let prevPadButtons = [];
+let padAxes = [];
+let isPadMode = false;
+
+function setInputMode(mode) {
+    if (mode === 'pad' && !isPadMode) {
+        isPadMode = true;
+        document.body.classList.add('pad-mode');
+    } else if (mode === 'kbd' && isPadMode) {
+        isPadMode = false;
+        document.body.classList.remove('pad-mode');
+    }
+}
+
+function updateGamepad() {
+    const gamepads = navigator.getGamepads ? navigator.getGamepads() : [];
+    const pad = gamepads[0];
+    
+    for (let i = 0; i < 20; i++) {
+        prevPadButtons[i] = padButtons[i] || false;
+    }
+
+    if (pad) {
+        let padActive = false;
+        for (let i = 0; i < pad.buttons.length; i++) {
+            padButtons[i] = pad.buttons[i].pressed;
+            if (padButtons[i]) padActive = true;
+        }
+        padAxes[0] = pad.axes[0] || 0; // L-Stick X
+        if (Math.abs(padAxes[0]) > 0.3) padActive = true;
+
+        if (padActive) setInputMode('pad');
+    } else {
+        for (let i = 0; i < 20; i++) padButtons[i] = false;
+        padAxes[0] = 0;
+    }
+}
+
+function isPadBtnJustPressed(idx) {
+    return padButtons[idx] && !prevPadButtons[idx];
+}
+
 window.addEventListener('keydown', e => {
     keys[e.code] = true;
     initAudio(); 
+    setInputMode('kbd');
 
     // エンターキーでのスタート＆リスタート
     if (e.code === 'Enter' && !e.repeat) {
@@ -519,10 +642,24 @@ window.addEventListener('keydown', e => {
             restartGame();
         }
     }
+
+    // エスケープキーでのポーズ
+    if (e.code === 'Escape' && !e.repeat) {
+        if (scene === 'PLAY') {
+            pauseGame();
+        } else if (scene === 'PAUSE') {
+            resumeGame();
+        }
+    }
 });
 
 window.addEventListener('keyup', e => {
     keys[e.code] = false;
+});
+
+window.addEventListener('mousedown', () => {
+    setInputMode('kbd');
+    initAudio();
 });
 
 function isJustPressed(code) {
@@ -533,13 +670,44 @@ function updateInput() {
     for (let k in keys) {
         prevKeys[k] = keys[k];
     }
+    updateGamepad();
+
+    // グローバルなGamepadメニュー操作
+    // START(9): メニュー・開始・再開
+    if (isPadBtnJustPressed(9)) {
+        initAudio();
+        if (scene === 'TITLE') startGame();
+        else if (scene === 'PLAY') pauseGame();
+        else if (scene === 'PAUSE') resumeGame();
+        else if (scene === 'GAMEOVER') restartGame();
+        else if (scene === 'SHOP') startNextStage();
+    }
+    // Y(3): リスタート
+    if (isPadBtnJustPressed(3)) {
+        initAudio();
+        if (scene === 'PAUSE' || scene === 'GAMEOVER' || scene === 'TITLE') {
+            restartGame();
+        }
+    }
+    // B(1): キャンセル/再開
+    if (isPadBtnJustPressed(1)) {
+        if (scene === 'PAUSE') resumeGame();
+    }
+    // L(4) + R(5): タイトルへ
+    if (padButtons[4] && padButtons[5]) {
+        if (!(prevPadButtons[4] && prevPadButtons[5])) { // 押した瞬間
+            if (scene === 'PAUSE' || scene === 'GAMEOVER') {
+                returnToTitle();
+            }
+        }
+    }
 }
 
 // ==========================================
 // Global Game State
 // ==========================================
 let canvas, ctx;
-let scene = 'TITLE'; // TITLE, PLAY, SHOP, GAMEOVER
+let scene = 'TITLE'; // TITLE, PLAY, SHOP, GAMEOVER, PAUSE
 let animFrameId;
 let lastTime = 0;
 let accumulator = 0;
@@ -548,6 +716,7 @@ let accumulator = 0;
 let currentStage = 1;
 let totalScore = 0;
 let stageStartTime = 0;
+let pauseStartTime = 0; // ポーズ時間計算用
 
 // プレイヤーリソース
 let maxHp = 4;
@@ -564,7 +733,7 @@ const upgrades = {
 
 // 物理・ゲーム内変数
 let isInvincibleMode = false; 
-let starInvincibleTimer = 0; // 無敵アイテム用のタイマー
+let starInvincibleTimer = 0; 
 let cameraY = 0;
 let nextGenY = 0; 
 let targetGoalY = 0; 
@@ -644,20 +813,23 @@ class Player extends Entity {
     update() {
         this.prevY = this.y;
 
-        if (keys['ArrowLeft'] || keys['KeyA']) this.vx = -3.5;
-        else if (keys['ArrowRight'] || keys['KeyD']) this.vx = 3.5;
+        // 移動 (Keyboard & Gamepad D-Pad/L-Stick)
+        if (keys['ArrowLeft'] || keys['KeyA'] || padButtons[14] || padAxes[0] < -0.3) this.vx = -3.5;
+        else if (keys['ArrowRight'] || keys['KeyD'] || padButtons[15] || padAxes[0] > 0.3) this.vx = 3.5;
         else this.vx *= 0.7; 
 
         this.vy += 0.25; 
 
-        if (isJustPressed('Space') && !this.isStomping && !isGoalReached) {
+        // Stomp (Space or Pad-A(0))
+        if ((isJustPressed('Space') || isPadBtnJustPressed(0)) && !this.isStomping && !isGoalReached) {
             this.isStomping = true;
             this.vy = 8;
             playSound('stomp');
             spawnParticles(this.x+this.w/2, this.y, 5, COLOR_FG, 1);
         }
 
-        if ((isJustPressed('ArrowUp') || isJustPressed('KeyW')) && !isGoalReached) {
+        // Double Jump (W/Up or Pad-X(2))
+        if ((isJustPressed('ArrowUp') || isJustPressed('KeyW') || isPadBtnJustPressed(2)) && !isGoalReached) {
             if (this.jumpsLeft > 0) {
                 this.vy = -6;
                 this.isStomping = false;
@@ -681,15 +853,12 @@ class Player extends Entity {
 
         if (this.invicibleFrames > 0) this.invicibleFrames--;
 
-        // 無敵アイテム中の処理
         if (starInvincibleTimer > 0) {
             starInvincibleTimer--;
-            // 無敵中はキラキラ
             if (starInvincibleTimer % 5 === 0) {
                 spawnParticles(this.x+this.w/2, this.y+this.h/2, 2, 'hsl(' + ((Date.now() / 5) % 360) + ', 100%, 70%)', 1);
             }
             if (starInvincibleTimer === 0) {
-                // 無敵が切れたらBGMを戻す
                 clearBGM();
                 bgmNextScheduleTime = actx ? actx.currentTime : 0;
             }
@@ -898,7 +1067,6 @@ class Item extends Entity {
     }
 }
 
-// 新規：無敵になるスターアイテム
 class StarItem extends Entity {
     constructor(x, y) {
         super(x, y, 12, 12);
@@ -987,6 +1155,8 @@ function startGame() {
 
     scene = 'PLAY';
     document.getElementById('ui-title').classList.add('hidden');
+    document.getElementById('ui-gameover').classList.add('hidden');
+    document.getElementById('ui-pause').classList.add('hidden');
     document.getElementById('header-ui').classList.remove('hidden');
     
     currentStage = 1;
@@ -1016,6 +1186,21 @@ function startNextStage() {
     
     isBGMPlaying = true;
     bgmNextScheduleTime = actx ? actx.currentTime + 1.2 : 0;
+}
+
+function pauseGame() {
+    scene = 'PAUSE';
+    pauseStartTime = Date.now();
+    if (actx) actx.suspend();
+    document.getElementById('ui-pause').classList.remove('hidden');
+}
+
+function resumeGame() {
+    scene = 'PLAY';
+    if (actx) actx.resume();
+    // ポーズしていた時間分、開始時間を進めてタイマーのズレを防ぐ
+    stageStartTime += (Date.now() - pauseStartTime);
+    document.getElementById('ui-pause').classList.add('hidden');
 }
 
 function setupStage() {
@@ -1063,10 +1248,10 @@ function generateChunk() {
             break;
         }
 
-        let isSafeZone = nextGenY > -150; // スタート直後の安全地帯
+        let isSafeZone = nextGenY > -150; 
+        let isTutorialHalf = isTutorial && nextGenY < targetGoalY / 2; // チュートリアルの後半
         let isEnemyStep = isTutorial || isSafeZone ? false : Math.random() < (0.05 + diff * 0.25);
         
-        // 足場が真上に被らないように、必ず左右どちらかに最低40px以上ずらす
         let dir = Math.random() < 0.5 ? 1 : -1;
         let xOffset = rand(40, 80) * dir;
         let nextCenter = lastPlatformX + xOffset;
@@ -1100,7 +1285,8 @@ function generateChunk() {
             platforms.push(new Platform(px, nextGenY, pw, 10));
             lastPlatformX = px + pw / 2;
 
-            let enemyProb = isTutorial ? 0.1 : 0.15 + diff * 0.35; 
+            // チュートリアル後半は敵を少し出現させる
+            let enemyProb = isTutorial ? (isTutorialHalf ? 0.25 : 0.05) : 0.15 + diff * 0.35; 
             if (!isSafeZone && Math.random() < enemyProb) { 
                 let typeRand = Math.random();
                 let type = 'walk';
@@ -1119,7 +1305,6 @@ function generateChunk() {
             }
         }
 
-        // アイテムの生成
         if (Math.random() < 0.6) {
             let gx = nextCenter + rand(-20, 20);
             if (gx < 10) gx = 10;
@@ -1131,7 +1316,6 @@ function generateChunk() {
             if(Math.random() < 0.3) items.push(new Item(gx - 12, gy));
         }
         
-        // 低確率で無敵のスターアイテムを生成（約0.3% : 平均して3ステージに1回程度）
         if (Math.random() < 0.003) {
             let sx = nextCenter + rand(-20, 20);
             if (sx < 10) sx = 10;
@@ -1164,9 +1348,6 @@ function updatePlay() {
             let pw = 80;
             let safeX = Math.max(0, Math.min(CW - pw, player.x - pw/2));
             platforms.push(new Platform(safeX, cameraY + CH - 10, pw, 10));
-            // 修正：マップ生成カーソルを巻き戻さないように削除
-            // lastPlatformX = safeX + pw / 2;
-            // nextGenY = cameraY + CH - 10; 
         }
     }
 
@@ -1215,13 +1396,11 @@ function updatePlay() {
     for (let e of enemies) {
         if (!e.active) continue;
         if (checkAABB(player, e)) {
-            // 無敵中は触れるだけで敵を倒せる
             if (starInvincibleTimer > 0 || isInvincibleMode) {
                 e.active = false;
                 spawnParticles(e.x+e.w/2, e.y+e.h/2, 20, COLOR_RED, 3);
                 playSound('hit');
                 totalScore += 100 * currentStage;
-                // 足場代わりになるよう軽く跳ねる
                 if (player.isStomping) {
                     player.vy = upgrades.highJump ? -12 : -9;
                     addShake(15, 8);
@@ -1231,7 +1410,6 @@ function updatePlay() {
                 player.isStomping = false;
                 if(upgrades.doubleJump) player.jumpsLeft = 1;
             } else if (player.vy > 0 && player.prevY + player.h <= e.prevY + e.h/2) {
-                // 通常時の踏みつけ
                 e.active = false;
                 spawnParticles(e.x+e.w/2, e.y+e.h/2, 20, COLOR_RED, 3);
                 playSound('hit');
@@ -1274,15 +1452,13 @@ function updatePlay() {
         if (checkAABB(player, i)) {
             i.active = false;
             if (i instanceof StarItem) {
-                // スター取得
-                starInvincibleTimer = 600; // 60fps * 10秒
+                starInvincibleTimer = 600; 
                 playSound('start_jingle');
-                clearBGM(); // 即座にBGMを切り替える
+                clearBGM(); 
                 bgmNextScheduleTime = actx ? actx.currentTime : 0;
                 spawnParticles(i.x+i.w/2, i.y+i.h/2, 30, '#ffff00', 4);
                 totalScore += 500;
             } else {
-                // 通常のジェム
                 gems++;
                 totalScore += 10;
                 playSound('gem');
@@ -1339,7 +1515,6 @@ function updateHUD() {
     let elapsed = Math.floor((Date.now() - stageStartTime)/1000);
     document.getElementById('hud-time').innerText = elapsed + "s";
 
-    // アイコンの表示切替
     document.getElementById('icon-shield').className = upgrades.shield ? 'icon-active' : 'icon-inactive';
     document.getElementById('icon-double').className = upgrades.doubleJump ? 'icon-active' : 'icon-inactive';
     document.getElementById('icon-magnet').className = upgrades.magnet ? 'icon-active' : 'icon-inactive';
@@ -1386,7 +1561,18 @@ function gameOver() {
 
 function restartGame() {
     document.getElementById('ui-gameover').classList.add('hidden');
+    document.getElementById('ui-pause').classList.add('hidden');
+    if (actx && actx.state === 'suspended') actx.resume();
     startGame();
+}
+
+function returnToTitle() {
+    document.getElementById('ui-gameover').classList.add('hidden');
+    document.getElementById('ui-pause').classList.add('hidden');
+    document.getElementById('ui-title').classList.remove('hidden');
+    document.getElementById('header-ui').classList.add('hidden');
+    if (actx && actx.state === 'suspended') actx.resume();
+    scene = 'TITLE';
 }
 
 // ==========================================
@@ -1415,13 +1601,11 @@ function openShop() {
         return true;
     });
 
-    // アイテムをランダムにシャッフル (Fisher-Yates)
     for (let i = available.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
         [available[i], available[j]] = [available[j], available[i]];
     }
     
-    // 上位3つを抽出してショップに並べる
     currentShopItems = available.slice(0, 3).map(item => ({...item, sold: false}));
 
     renderShopItems();
@@ -1526,13 +1710,6 @@ function loadRanking() {
     });
 }
 
-function returnToTitle() {
-    document.getElementById('ui-gameover').classList.add('hidden');
-    document.getElementById('ui-title').classList.remove('hidden');
-    document.getElementById('header-ui').classList.add('hidden');
-    scene = 'TITLE';
-}
-
 // ==========================================
 // Main Loop
 // ==========================================
@@ -1552,8 +1729,10 @@ function gameLoop(time) {
         accumulator -= STEP;
     }
 
-    if (scene === 'PLAY') {
+    if (scene === 'PLAY' || scene === 'PAUSE') {
         drawPlay(ctx);
+    }
+    if (scene === 'PLAY') {
         scheduleBGM(); 
     }
 }
