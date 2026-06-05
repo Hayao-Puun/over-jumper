@@ -155,11 +155,14 @@
             width: 160px;
             height: 160px;
             object-fit: cover;
-            border: 2px solid var(--fg-color);
-            border-radius: 12px;
-            margin-bottom: 10px;
-            box-shadow: 0 0 15px rgba(255, 255, 255, 0.2);
+            /* 修正: 白い枠線を削除 */
+            border-radius: 8px;
+            /* 修正: タイトル文字との間隔を狭める */
+            margin-bottom: 5px; 
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
         }
+
+        h1.title {
 
         h2 { font-size: 28px; margin-bottom: 15px; } 
         p { font-size: 16px; margin: 8px 0; line-height: 1.5;} 
@@ -1682,13 +1685,15 @@ function updatePlay() {
                 player.isStomping = false;
                 player.jumpsLeft = upgrades.doubleJump;
                 
-                // 極稀にハートをドロップ (3%)
-                if (Math.random() < 0.03) {
-                    let heart = new HeartItem(e.x, e.y);
-                    heart.vy = -rand(3, 6);
-                    heart.vx = rand(-2, 2);
+                // コンボ数に応じてハートのドロップ率上昇 (初期3%、5コンボ目で最大10%)
+                // 1コンボ=3%, 2コンボ=4.75%, 3コンボ=6.5%, 4コンボ=8.25%, 5コンボ以上=10%
+                let heartProb = 0.03 + Math.min(Math.max(0, comboCount - 1), 4) * 0.0175;
+                if (Math.random() < heartProb) {
+                    let heart = new HeartItem(e.x + e.w/2 - 5, e.y);
+                    heart.vy = -rand(2, 4);
                     items.push(heart);
                 }
+
             } else if (player.vy > 0 && player.prevY + player.h <= e.prevY + e.h/2) {
                 e.active = false;
                 spawnParticles(e.x+e.w/2, e.y+e.h/2, 20, COLOR_RED, 3);
@@ -1702,25 +1707,18 @@ function updatePlay() {
                     player.vy = -8 - (upgrades.highJump * 1.5);
                     addShake(15, 8);
                     totalScore += 100 * comboCount;
-                    
-                    let gemDrop = Math.min(3 + comboCount, 15);
-                    for(let k=0; k<gemDrop; k++) {
-                        let drop = new Item(e.x, e.y);
-                        drop.vy = -rand(2, 5);
-                        drop.vx = rand(-3, 3);
-                        items.push(drop);
-                    }
                 } else {
                     player.vy = -5.5; 
                     totalScore += 50 * comboCount;
                 }
                 player.isStomping = false;
                 player.jumpsLeft = upgrades.doubleJump;
-                
-                if (Math.random() < 0.03) {
-                    let heart = new HeartItem(e.x, e.y);
-                    heart.vy = -rand(3, 6);
-                    heart.vx = rand(-2, 2);
+
+                // コンボ数に応じてハートのドロップ率上昇 (初期3%、5コンボ目で最大10%)
+                let heartProb = 0.03 + Math.min(Math.max(0, comboCount - 1), 4) * 0.0175;
+                if (Math.random() < heartProb) {
+                    let heart = new HeartItem(e.x + e.w/2 - 5, e.y);
+                    heart.vy = -rand(2, 4);
                     items.push(heart);
                 }
             } else {
