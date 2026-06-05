@@ -3,8 +3,26 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>OVER JUMPER</title>
+    <title>OVERJUMPER</title>
+    
+    <!-- ファビコン設定 -->
     <link rel="icon" href="favicon.jpg" type="image/jpg">
+    
+    <!-- OGP (SNSシェア時のプレビューカード設定) -->
+    <!-- 
+      ※GitHub Pages等で公開してSNSプレビュー画像を表示させる場合は、
+      下部の「favicon.png」の部分を実際の絶対パスURL（例: https://[ユーザー名].github.io/[リポジトリ名]/favicon.png）
+      に書き換えることで、Xなどのタイムラインで自キャラのファビコン画像が美しくカード表示されるようになります！
+    -->
+    <meta property="og:title" content="OVERJUMPER">
+    <meta property="og:description" content="マグマから逃れ、空の頂点を目指して昇り続ける超高速縦スクロールアクション！">
+    <meta property="og:image" content="favicon.png"> 
+    <meta property="og:type" content="website">
+    <meta name="twitter:card" content="summary">
+    <meta name="twitter:title" content="OVERJUMPER - 超高速縦スクロールアクション">
+    <meta name="twitter:description" content="マグマから逃れ、空の頂点を目指して昇り続ける超高速縦スクロールアクション！">
+    <meta name="twitter:image" content="favicon.png">
+
     <style>
         /* CSS: ビジュアルとレイアウト設定 */
         :root {
@@ -126,11 +144,21 @@
         }
 
         h1.title {
-            font-size: 56px; 
+            font-size: 50px; 
             color: var(--accent-color);
             text-shadow: 2px 2px 0 var(--fg-color), -2px -2px 0 var(--fg-color), 2px -2px 0 var(--fg-color), -2px 2px 0 var(--fg-color);
             margin-bottom: 15px;
-            letter-spacing: 4px;
+            letter-spacing: 2px;
+        }
+        
+        .title-image {
+            width: 160px;
+            height: 160px;
+            object-fit: cover;
+            border: 2px solid var(--fg-color);
+            border-radius: 12px;
+            margin-bottom: 10px;
+            box-shadow: 0 0 15px rgba(255, 255, 255, 0.2);
         }
 
         h2 { font-size: 28px; margin-bottom: 15px; } 
@@ -265,6 +293,7 @@
         
         <!-- Title Screen -->
         <div id="ui-title" class="ui-layer">
+            <img src="title_OVERJUMPER.jpg" alt="OVERJUMPER Logo" class="title-image" onerror="this.style.display='none'">
             <h1 class="title">OVERJUMPER</h1>
             <p>Ascend to the top.</p>
             <button class="btn" onclick="startGame()">START GAME <span class="pad-only pad-badge">[START]</span></button>
@@ -333,6 +362,10 @@
             <div style="margin-top: 15px; display: flex; flex-direction: column; width: 60%; max-width: 220px;">
                 <button class="btn" style="margin: 8px 0; padding: 12px;" onclick="restartGame()">RESTART <span class="pad-only pad-badge">[Y] / [START]</span></button>
                 <button class="btn" style="margin: 8px 0; padding: 12px;" onclick="returnToTitle()">TITLE <span class="pad-only pad-badge">[L]+[R]</span></button>
+                
+                <div style="margin-top: 16px; width: 100%;">
+                    <button class="btn" style="margin: 0; padding: 6px 12px; font-size: 13px; border-color: #1da1f2; color: #1da1f2; width: 100%; text-transform: none; font-weight: normal;" onclick="shareScore()">SHARE ON X 𝕏</button>
+                </div>
             </div>
         </div>
     </div>
@@ -340,7 +373,7 @@
 
 <script>
 /**
- * OVERWELL - 2D Action Game
+ * OVERJUMPER - 2D Action Game
  * Vanilla JS, HTML5 Canvas
  */
 
@@ -369,11 +402,11 @@ let bgStars = [];
 const AudioContext = window.AudioContext || window.webkitAudioContext;
 let actx = null;
 let masterGain = null;
-let biquadFilter = null; // ダイナミックBGM用フィルター
+let biquadFilter = null; 
 let bgmOscillators = []; 
 
 // 音量の初期設定
-let masterVolume = parseFloat(localStorage.getItem('overwell_vol'));
+let masterVolume = parseFloat(localStorage.getItem('overjumper_vol'));
 if (isNaN(masterVolume)) masterVolume = 0.5;
 
 function initAudio() {
@@ -382,10 +415,9 @@ function initAudio() {
         masterGain = actx.createGain();
         masterGain.gain.value = masterVolume;
         
-        // ローパスフィルター設定（マグマ接近時にこもる音になる）
         biquadFilter = actx.createBiquadFilter();
         biquadFilter.type = 'lowpass';
-        biquadFilter.frequency.value = 20000; // 初期はスルー
+        biquadFilter.frequency.value = 20000; 
         
         masterGain.connect(biquadFilter);
         biquadFilter.connect(actx.destination);
@@ -395,14 +427,13 @@ function initAudio() {
     }
 }
 
-// 5段階音量スライダー
 const volSliders = document.querySelectorAll('.vol-slider');
 volSliders.forEach(slider => {
     slider.value = Math.round(masterVolume * 4);
     slider.addEventListener('input', (e) => {
         let val = parseInt(e.target.value); 
         masterVolume = val * 0.25; 
-        localStorage.setItem('overwell_vol', masterVolume);
+        localStorage.setItem('overjumper_vol', masterVolume);
         
         if (masterGain) {
             masterGain.gain.value = masterVolume;
@@ -446,7 +477,6 @@ function playSound(type, ...args) {
             osc.start(now); osc.stop(now + 0.1);
             break;
         case 'hit': 
-            // 音楽的な上昇 (ペンタトニックスケール)
             let combo = args[0] || 1;
             const penta = [261.63, 293.66, 329.63, 392.00, 440.00, 523.25, 587.33, 659.25, 783.99, 880.00, 1046.50, 1174.66, 1318.51, 1567.98];
             let noteIdx = Math.min(combo - 1, penta.length - 1);
@@ -465,6 +495,15 @@ function playSound(type, ...args) {
             gain.gain.setValueAtTime(0.05, now);
             gain.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
             osc.start(now); osc.stop(now + 0.1);
+            break;
+        case 'heal': 
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(400, now);
+            osc.frequency.linearRampToValueAtTime(800, now + 0.1);
+            osc.frequency.linearRampToValueAtTime(1200, now + 0.2);
+            gain.gain.setValueAtTime(0.1, now);
+            gain.gain.linearRampToValueAtTime(0.01, now + 0.3);
+            osc.start(now); osc.stop(now + 0.3);
             break;
         case 'damage': 
             osc.type = 'sawtooth';
@@ -570,8 +609,8 @@ function scheduleBGM() {
         let vol = 0.04;
 
         if (starInvincibleTimer > 0) {
-            let isEnding = starInvincibleTimer < 120; // 残り2秒で切れかけ演出
-            let speed = isEnding ? 1.5 : 1; // 切れかけはテンポとピッチが上がる
+            let isEnding = starInvincibleTimer < 120; 
+            let speed = isEnding ? 1.5 : 1; 
             
             notes = [
                 {time: 0, freq: 523.25 * (isEnding ? 1.2 : 1)}, 
@@ -641,7 +680,6 @@ function stopBGM() {
 const keys = {};
 let prevKeys = {};
 
-// Gamepad API
 let padButtons = [];
 let prevPadButtons = [];
 let padAxes = [];
@@ -751,7 +789,6 @@ function updateInput() {
         }
     }
 
-    // ショップ画面でのカーソル移動と決定
     if (scene === 'SHOP') {
         let up = isJustPressed('ArrowUp') || isJustPressed('KeyW') || isPadBtnJustPressed(12) || (padAxes[1] < -0.5 && prevPadAxes[1] >= -0.5);
         let down = isJustPressed('ArrowDown') || isJustPressed('KeyS') || isPadBtnJustPressed(13) || (padAxes[1] > 0.5 && prevPadAxes[1] <= 0.5);
@@ -867,7 +904,7 @@ function spawnParticles(x, y, count, color, speedBase=2, type='normal') {
         let vy = Math.sin(angle)*speed;
         if (type === 'speedline') {
             vx = 0;
-            vy = -Math.random() * 5 - 5; // 上に向かうスピードライン
+            vy = -Math.random() * 5 - 5; 
         }
         particles.push(new Particle(x, y, vx, vy, color, type));
     }
@@ -899,7 +936,7 @@ class Player extends Entity {
         super(x, y, 12, 12);
         this.isStomping = false;
         this.invicibleFrames = 0;
-        this.jumpsLeft = upgrades.doubleJump; // Lv1=1回, Lv2=2回, Lv3=3回
+        this.jumpsLeft = upgrades.doubleJump; 
     }
 
     update() {
@@ -936,7 +973,6 @@ class Player extends Entity {
         if (this.x > CW) this.x -= CW;
         if (this.x + this.w < 0) this.x += CW;
 
-        // トレイルとスピードラインの強化
         if (this.isStomping) {
             trails.push({x: this.x, y: this.y, w: this.w, h: this.h, life: 15, maxLife: 15, color: COLOR_RED});
             if (Math.random() < 0.6) {
@@ -991,7 +1027,7 @@ class Player extends Entity {
         if (upgrades.shield > 0) {
             ctx.strokeStyle = COLOR_SHIELD;
             ctx.setLineDash([2, 2]);
-            ctx.lineWidth = upgrades.shield; // スタック数で太く
+            ctx.lineWidth = upgrades.shield; 
             ctx.beginPath();
             ctx.arc(this.x + this.w/2, this.y + this.h/2, 12 + upgrades.shield, 0, Math.PI*2);
             ctx.stroke();
@@ -1009,7 +1045,7 @@ class Player extends Entity {
             playSound('hit');
             spawnParticles(this.x+this.w/2, this.y+this.h/2, 20, COLOR_SHIELD, 3);
             addShake(5, 10);
-            updateHUD(); // シールド減ったのでUI更新
+            updateHUD(); 
             return;
         }
 
@@ -1179,9 +1215,9 @@ class Item extends Entity {
             let dx = (player.x + player.w/2) - (this.x + this.w/2);
             let dy = (player.y + player.h/2) - (this.y + this.h/2);
             let dist = Math.sqrt(dx*dx + dy*dy);
-            let threshold = 100 + (upgrades.magnet * 50); // Lvl1:150, 2:200, 3:250
+            let threshold = 100 + (upgrades.magnet * 50); 
             if (dist < threshold) { 
-                let spd = 3 + upgrades.magnet; // Lvl1:4, 2:5, 3:6
+                let spd = 3 + upgrades.magnet; 
                 this.x += (dx / dist) * spd;
                 this.baseY += (dy / dist) * spd;
             }
@@ -1241,6 +1277,45 @@ class StarItem extends Entity {
     }
 }
 
+class HeartItem extends Entity {
+    constructor(x, y) {
+        super(x, y, 10, 10);
+        this.baseY = y;
+        this.time = Math.random() * 100;
+    }
+    update() {
+        this.time += 0.1;
+        this.y = this.baseY + Math.sin(this.time) * 3;
+        
+        if (upgrades.magnet > 0 && player) {
+            let dx = (player.x + player.w/2) - (this.x + this.w/2);
+            let dy = (player.y + player.h/2) - (this.y + this.h/2);
+            let dist = Math.sqrt(dx*dx + dy*dy);
+            let threshold = 100 + (upgrades.magnet * 50); 
+            if (dist < threshold) { 
+                let spd = 3 + upgrades.magnet; 
+                this.x += (dx / dist) * spd;
+                this.baseY += (dy / dist) * spd;
+            }
+        }
+        super.update();
+    }
+    draw(ctx) {
+        ctx.save();
+        ctx.translate(this.x + this.w/2, this.y + this.h/2);
+        ctx.fillStyle = '#ff2255'; 
+        
+        // ドット絵風のハート描画
+        ctx.fillRect(-4, -4, 3, 3); // 左上
+        ctx.fillRect(1, -4, 3, 3);  // 右上
+        ctx.fillRect(-5, -1, 10, 3); // 中段
+        ctx.fillRect(-3, 2, 6, 2);   // 下段
+        ctx.fillRect(-1, 4, 2, 2);   // 最下段
+        
+        ctx.restore();
+    }
+}
+
 class Particle {
     constructor(x, y, vx, vy, color, type='normal') {
         this.x = x; this.y = y;
@@ -1283,13 +1358,12 @@ function initGame() {
     canvas = document.getElementById('gameCanvas');
     ctx = canvas.getContext('2d', { alpha: false }); 
     
-    // 多重スクロール用の星を初期生成
     bgStars = [];
     for(let i=0; i<150; i++) {
         bgStars.push({
             x: Math.random() * CW,
             y: Math.random() * CH,
-            s: Math.random() * 0.4 + 0.1, // スクロール速度の係数 (パララックス)
+            s: Math.random() * 0.4 + 0.1, 
             c: Math.random() < 0.5 ? '#555' : '#888'
         });
     }
@@ -1318,7 +1392,6 @@ function startGame() {
     hp = maxHp;
     gems = 0;
     
-    // リセット (全レベル0)
     upgrades.doubleJump = 0;
     upgrades.shield = 0;
     upgrades.magnet = 0;
@@ -1503,20 +1576,18 @@ function updatePlay() {
     let magmaSpeed = 0.5 + (currentStage * 0.15);
     magmaY -= magmaSpeed;
 
-    // 修正：カメラの滑らかな追従（Lerp）による画面酔い対策
     let targetCameraY = cameraY;
     if (player.y < cameraY + CH * 0.4) {
         targetCameraY = player.y - CH * 0.4;
     } else if (player.y > cameraY + CH * 0.7) {
         targetCameraY = player.y - CH * 0.7;
     }
-    cameraY += (targetCameraY - cameraY) * 0.15; // 0.15の速度で滑らかに追いつく
+    cameraY += (targetCameraY - cameraY) * 0.15; 
 
     if (magmaY > cameraY + CH + 500) {
         magmaY = cameraY + CH + 500;
     }
 
-    // ダイナミックBGMフィルター（マグマが近づくと音がこもる）
     if (biquadFilter) {
         let magmaDist = magmaY - player.y;
         if (magmaDist < 300) {
@@ -1539,8 +1610,6 @@ function updatePlay() {
         }
     }
 
-    // 修正：画面から見えなくなった足場ではなく、マグマに飲まれた足場を消去する。
-    // これにより、落ちてしまった際にも過去の足場を使って登り直すことができる。
     const isAlive = (y) => y < magmaY + 100;
 
     platforms = platforms.filter(p => p.active && isAlive(p.y));
@@ -1578,7 +1647,6 @@ function updatePlay() {
                 }
 
                 if (player.isStomping) {
-                    // スーパーストンプLvに応じて着地ジャンプ力がアップ
                     player.vy = -7.5 - (upgrades.highJump * 1.0); 
                     addShake(5, 5);
                     spawnParticles(player.x+player.w/2, player.y+player.h, 10, COLOR_FG);
@@ -1588,7 +1656,7 @@ function updatePlay() {
                     playSound('jump');
                 }
                 player.isStomping = false;
-                player.jumpsLeft = upgrades.doubleJump; // Lv分のジャンプ回数を付与
+                player.jumpsLeft = upgrades.doubleJump; 
                 
                 comboCount = 0;
             }
@@ -1613,6 +1681,14 @@ function updatePlay() {
                 }
                 player.isStomping = false;
                 player.jumpsLeft = upgrades.doubleJump;
+                
+                // 極稀にハートをドロップ (3%)
+                if (Math.random() < 0.03) {
+                    let heart = new HeartItem(e.x, e.y);
+                    heart.vy = -rand(3, 6);
+                    heart.vx = rand(-2, 2);
+                    items.push(heart);
+                }
             } else if (player.vy > 0 && player.prevY + player.h <= e.prevY + e.h/2) {
                 e.active = false;
                 spawnParticles(e.x+e.w/2, e.y+e.h/2, 20, COLOR_RED, 3);
@@ -1626,12 +1702,27 @@ function updatePlay() {
                     player.vy = -8 - (upgrades.highJump * 1.5);
                     addShake(15, 8);
                     totalScore += 100 * comboCount;
+                    
+                    let gemDrop = Math.min(3 + comboCount, 15);
+                    for(let k=0; k<gemDrop; k++) {
+                        let drop = new Item(e.x, e.y);
+                        drop.vy = -rand(2, 5);
+                        drop.vx = rand(-3, 3);
+                        items.push(drop);
+                    }
                 } else {
                     player.vy = -5.5; 
                     totalScore += 50 * comboCount;
                 }
                 player.isStomping = false;
                 player.jumpsLeft = upgrades.doubleJump;
+                
+                if (Math.random() < 0.03) {
+                    let heart = new HeartItem(e.x, e.y);
+                    heart.vy = -rand(3, 6);
+                    heart.vx = rand(-2, 2);
+                    items.push(heart);
+                }
             } else {
                 player.damage();
             }
@@ -1659,11 +1750,17 @@ function updatePlay() {
                 bgmNextScheduleTime = actx ? actx.currentTime : 0;
                 spawnParticles(i.x+i.w/2, i.y+i.h/2, 30, '#ffff00', 4);
                 totalScore += 500;
+            } else if (i instanceof HeartItem) {
+                if (hp < maxHp) {
+                    hp++;
+                }
+                playSound('heal');
+                spawnParticles(i.x+i.w/2, i.y+i.h/2, 15, '#ff2255', 3);
+                totalScore += 50;
             } else {
                 gems++;
                 let gain = 10;
                 
-                // コンバーターLvに応じたスコア倍率 (Lv1:x2, Lv2:x3, Lv3:x4)
                 if (upgrades.converter > 0 && hp >= maxHp) {
                     gain *= (1 + upgrades.converter); 
                 }
@@ -1685,7 +1782,6 @@ function drawPlay(ctx) {
     ctx.fillStyle = COLOR_BG;
     ctx.fillRect(0, 0, CW, CH);
 
-    // 多重スクロール星空の描画
     bgStars.forEach(star => {
         let drawY = (star.y - cameraY * star.s) % CH;
         if (drawY < 0) drawY += CH;
@@ -1713,7 +1809,6 @@ function drawPlay(ctx) {
     platforms.forEach(p => p.draw(ctx));
     if (crown) crown.draw(ctx); 
     
-    // アイテム類（グロー効果）
     ctx.shadowBlur = 10;
     ctx.shadowColor = COLOR_GEM;
     items.forEach(i => i.draw(ctx));
@@ -1765,7 +1860,6 @@ function updateHUD() {
     let elapsed = Math.floor((Date.now() - stageStartTime)/1000);
     document.getElementById('hud-time').innerText = elapsed + "s";
 
-    // アイコンの点灯とレベルバッジの表示
     const upgradeKeys = ['shield', 'doubleJump', 'magnet', 'highJump', 'converter', 'regen'];
     upgradeKeys.forEach(key => {
         let elIcon = document.getElementById('icon-' + key);
@@ -1788,7 +1882,6 @@ function stageClear() {
     player.vy = -10; 
     player.invicibleFrames = 180; 
     
-    // リジェネレーション（HPが減っていればストックを消費して回復）
     if (upgrades.regen > 0 && hp < maxHp) {
         let healAmount = Math.min(upgrades.regen, maxHp - hp);
         hp += healAmount;
@@ -1844,6 +1937,25 @@ function returnToTitle() {
     scene = 'TITLE';
 }
 
+function shareScore() {
+    let url = window.location.href;
+    
+    if (url.startsWith('blob:') || url.includes('localhost') || url.includes('127.0.0.1') || url.includes('usercontent.goog')) {
+        url = 'https://github.com/'; 
+    }
+
+    let text = `🏆 OVERJUMPERでハイスコア達成！\n\n` +
+               `🔥 SCORE: ${totalScore} pts\n` +
+               `🚩 STAGE: ${currentStage} まで到達！\n\n` +
+               `迫りくるマグマから逃れてどこまで登れるか！？\n` +
+               `スリリングな急上昇アクションにみんなも挑戦してみて！\n\n` +
+               `#OVERJUMPER`;
+    
+    let shareUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}`;
+    
+    window.open(shareUrl, '_blank');
+}
+
 // ==========================================
 // Shop System
 // ==========================================
@@ -1866,7 +1978,6 @@ function openShop() {
     
     let available = SHOP_ITEMS.filter(item => {
         if (item.id === 'hp') return true;
-        // 3個(Lv3)持っている時はショップに並ばない
         return (upgrades[item.id] || 0) < 3;
     });
 
@@ -1931,7 +2042,6 @@ function renderShopItems() {
             };
         }
 
-        // マウスホバーでフォーカスを合わせる
         div.onmouseenter = () => {
             shopSelectedIndex = index;
             updateShopFocus();
@@ -1942,7 +2052,6 @@ function renderShopItems() {
         list.appendChild(div);
     });
 
-    // NEXT STAGEボタンのホバー設定
     let nextBtn = document.getElementById('btn-next-stage');
     if (nextBtn) {
         nextBtn.onmouseenter = () => {
@@ -1999,16 +2108,16 @@ function buyItem(index) {
 // Data Management (localStorage)
 // ==========================================
 function saveScore() {
-    let scores = JSON.parse(localStorage.getItem('upwell_scores') || '[]');
+    let scores = JSON.parse(localStorage.getItem('overjumper_scores') || '[]');
     scores.push({ score: totalScore, stage: currentStage, date: new Date().toLocaleDateString() });
     scores.sort((a, b) => b.score - a.score);
     scores = scores.slice(0, 5); 
-    localStorage.setItem('upwell_scores', JSON.stringify(scores));
+    localStorage.setItem('overjumper_scores', JSON.stringify(scores));
     loadRanking();
 }
 
 function loadRanking() {
-    let scores = JSON.parse(localStorage.getItem('upwell_scores') || '[]');
+    let scores = JSON.parse(localStorage.getItem('overjumper_scores') || '[]');
     const list = document.getElementById('ranking-list');
     list.innerHTML = '';
     if (scores.length === 0) {
