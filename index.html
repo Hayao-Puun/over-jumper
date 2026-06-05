@@ -9,11 +9,6 @@
     <link rel="icon" href="favicon.jpg" type="image/jpg">
     
     <!-- OGP (SNSシェア時のプレビューカード設定) -->
-    <!-- 
-      ※GitHub Pages等で公開してSNSプレビュー画像を表示させる場合は、
-      下部の「favicon.png」の部分を実際の絶対パスURL（例: https://[ユーザー名].github.io/[リポジトリ名]/favicon.png）
-      に書き換えることで、Xなどのタイムラインで自キャラのファビコン画像が美しくカード表示されるようになります！
-    -->
     <meta property="og:title" content="OVERJUMPER">
     <meta property="og:description" content="マグマから逃れ、空の頂点を目指して昇り続ける超高速縦スクロールアクション！">
     <meta property="og:image" content="favicon.png"> 
@@ -143,26 +138,23 @@
             display: none !important;
         }
 
-        h1.title {
-            font-size: 50px; 
-            color: var(--accent-color);
-            text-shadow: 2px 2px 0 var(--fg-color), -2px -2px 0 var(--fg-color), 2px -2px 0 var(--fg-color), -2px 2px 0 var(--fg-color);
-            margin-bottom: 15px;
-            letter-spacing: 2px;
-        }
-        
+        /* タイトル画像の設定 */
         .title-image {
             width: 160px;
             height: 160px;
             object-fit: cover;
-            /* 修正: 白い枠線を削除 */
             border-radius: 8px;
-            /* 修正: タイトル文字との間隔を狭める */
             margin-bottom: 5px; 
             box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
         }
 
         h1.title {
+            font-size: 50px; 
+            color: var(--accent-color);
+            text-shadow: 2px 2px 0 var(--fg-color), -2px -2px 0 var(--fg-color), 2px -2px 0 var(--fg-color), -2px 2px 0 var(--fg-color);
+            margin-bottom: 10px;
+            letter-spacing: 2px;
+        }
 
         h2 { font-size: 28px; margin-bottom: 15px; } 
         p { font-size: 16px; margin: 8px 0; line-height: 1.5;} 
@@ -296,7 +288,7 @@
         
         <!-- Title Screen -->
         <div id="ui-title" class="ui-layer">
-            <img src="title_OVERJUMPER.jpg" alt="OVERJUMPER Logo" class="title-image" onerror="this.style.display='none'">
+            <img src="title_OVERJUMPER.jpg" alt="OVERJUMPER Logo" class="title-image" onerror="this.onerror=null; this.src='https://placehold.co/160x160/111/e52e2e?text=LOGO+IMAGE'">
             <h1 class="title">OVERJUMPER</h1>
             <p>Ascend to the top.</p>
             <button class="btn" onclick="startGame()">START GAME <span class="pad-only pad-badge">[START]</span></button>
@@ -363,8 +355,8 @@
             <p>STAGE REACHED: <span id="go-stage" class="hud-red"></span></p>
             <p>TOTAL SCORE: <span id="go-score" class="hud-gem"></span></p>
             <div style="margin-top: 15px; display: flex; flex-direction: column; width: 60%; max-width: 220px;">
-                <button class="btn" style="margin: 8px 0; padding: 12px;" onclick="restartGame()">RESTART <span class="pad-only pad-badge">[Y] / [START]</span></button>
-                <button class="btn" style="margin: 8px 0; padding: 12px;" onclick="returnToTitle()">TITLE <span class="pad-only pad-badge">[L]+[R]</span></button>
+                <button class="btn" style="margin: 6px 0; padding: 12px;" onclick="restartGame()">RESTART <span class="pad-only pad-badge">[Y] / [START]</span></button>
+                <button class="btn" style="margin: 6px 0; padding: 12px;" onclick="returnToTitle()">TITLE <span class="pad-only pad-badge">[L]+[R]</span></button>
                 
                 <div style="margin-top: 16px; width: 100%;">
                     <button class="btn" style="margin: 0; padding: 6px 12px; font-size: 13px; border-color: #1da1f2; color: #1da1f2; width: 100%; text-transform: none; font-weight: normal;" onclick="shareScore()">SHARE ON X 𝕏</button>
@@ -408,8 +400,7 @@ let masterGain = null;
 let biquadFilter = null; 
 let bgmOscillators = []; 
 
-// 音量の初期設定
-let masterVolume = parseFloat(localStorage.getItem('overjumper_vol'));
+let masterVolume = parseFloat(localStorage.getItem('overwell_vol'));
 if (isNaN(masterVolume)) masterVolume = 0.5;
 
 function initAudio() {
@@ -436,7 +427,7 @@ volSliders.forEach(slider => {
     slider.addEventListener('input', (e) => {
         let val = parseInt(e.target.value); 
         masterVolume = val * 0.25; 
-        localStorage.setItem('overjumper_vol', masterVolume);
+        localStorage.setItem('overwell_vol', masterVolume);
         
         if (masterGain) {
             masterGain.gain.value = masterVolume;
@@ -499,14 +490,14 @@ function playSound(type, ...args) {
             gain.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
             osc.start(now); osc.stop(now + 0.1);
             break;
-        case 'heal': 
+        case 'heal':
             osc.type = 'sine';
             osc.frequency.setValueAtTime(400, now);
-            osc.frequency.linearRampToValueAtTime(800, now + 0.1);
-            osc.frequency.linearRampToValueAtTime(1200, now + 0.2);
+            osc.frequency.exponentialRampToValueAtTime(800, now + 0.1);
+            osc.frequency.exponentialRampToValueAtTime(1200, now + 0.2);
             gain.gain.setValueAtTime(0.1, now);
-            gain.gain.linearRampToValueAtTime(0.01, now + 0.3);
-            osc.start(now); osc.stop(now + 0.3);
+            gain.gain.exponentialRampToValueAtTime(0.01, now + 0.2);
+            osc.start(now); osc.stop(now + 0.2);
             break;
         case 'damage': 
             osc.type = 'sawtooth';
@@ -590,7 +581,6 @@ function playSound(type, ...args) {
     }
 }
 
-// BGM System
 let isBGMPlaying = false;
 let bgmNextScheduleTime = 0;
 
@@ -677,9 +667,6 @@ function stopBGM() {
     clearBGM();
 }
 
-// ==========================================
-// Input Handling & Gamepad
-// ==========================================
 const keys = {};
 let prevKeys = {};
 
@@ -830,18 +817,15 @@ let accumulator = 0;
 
 let shopSelectedIndex = 0;
 
-// 進行状況
 let currentStage = 1;
 let totalScore = 0;
 let stageStartTime = 0;
 let pauseStartTime = 0; 
 
-// プレイヤーリソース
 let maxHp = 4;
 let hp = maxHp;
 let gems = 0;
 
-// アップグレード状態 (各0~3レベル)
 const upgrades = {
     doubleJump: 0,
     shield: 0,
@@ -851,7 +835,6 @@ const upgrades = {
     regen: 0  
 };
 
-// 物理・ゲーム内変数
 let isInvincibleMode = false; 
 let starInvincibleTimer = 0; 
 let cameraY = 0;
@@ -864,12 +847,10 @@ let shakeMag = 0;
 let lastPlatformX = 120; 
 let lastEnemyX = -100; 
 
-// マグマとコンボ
 let magmaY = 0;
 let comboCount = 0;
 let comboDisplayTimer = 0;
 
-// エンティティリスト
 let player;
 let crown = null; 
 let platforms = [];
@@ -879,9 +860,6 @@ let particles = [];
 let trails = [];
 let bullets = []; 
 
-// ==========================================
-// Utility
-// ==========================================
 function checkAABB(a, b) {
     return a.x < b.x + b.w &&
            a.x + a.w > b.x &&
@@ -898,7 +876,6 @@ function addShake(mag, timeFrames) {
     shakeTime = timeFrames;
 }
 
-// type: 'normal', 'speedline'
 function spawnParticles(x, y, count, color, speedBase=2, type='normal') {
     for(let i=0; i<count; i++) {
         let angle = Math.random() * Math.PI * 2;
@@ -907,15 +884,12 @@ function spawnParticles(x, y, count, color, speedBase=2, type='normal') {
         let vy = Math.sin(angle)*speed;
         if (type === 'speedline') {
             vx = 0;
-            vy = -Math.random() * 5 - 5; 
+            vy = -Math.random() * 5 - 5;
         }
         particles.push(new Particle(x, y, vx, vy, color, type));
     }
 }
 
-// ==========================================
-// Classes
-// ==========================================
 class Entity {
     constructor(x, y, w, h) {
         this.x = x; this.y = y;
@@ -1123,16 +1097,19 @@ class Enemy extends Entity {
         this.speed = rand(0.5, 1.5) + (currentStage * 0.1); 
         this.type = type; 
         this.shootTimer = rand(60, 120);
+        this.time = Math.random() * 100;
     }
     update() {
+        if (this.type === 'fly') {
+            this.time += 0.05;
+            this.vy = Math.sin(this.time) * 0.8;
+        }
         super.update();
         if (this.type === 'walk') {
             this.x += this.moveDir * this.speed;
             if (Math.abs(this.x - this.startX) > 40) {
                 this.moveDir *= -1;
             }
-        } else if (this.type === 'fly') {
-            this.y += Math.sin(Date.now() / 200 + this.startX) * 0.5;
         } else if (this.type === 'shooter') {
             this.shootTimer--;
             if (this.shootTimer <= 0 && player) {
@@ -1218,9 +1195,9 @@ class Item extends Entity {
             let dx = (player.x + player.w/2) - (this.x + this.w/2);
             let dy = (player.y + player.h/2) - (this.y + this.h/2);
             let dist = Math.sqrt(dx*dx + dy*dy);
-            let threshold = 100 + (upgrades.magnet * 50); 
+            let threshold = 60 + (upgrades.magnet * 20); 
             if (dist < threshold) { 
-                let spd = 3 + upgrades.magnet; 
+                let spd = 2 + upgrades.magnet * 0.5; 
                 this.x += (dx / dist) * spd;
                 this.baseY += (dy / dist) * spd;
             }
@@ -1253,9 +1230,9 @@ class StarItem extends Entity {
             let dx = (player.x + player.w/2) - (this.x + this.w/2);
             let dy = (player.y + player.h/2) - (this.y + this.h/2);
             let dist = Math.sqrt(dx*dx + dy*dy);
-            let threshold = 100 + (upgrades.magnet * 50); 
+            let threshold = 60 + (upgrades.magnet * 20); 
             if (dist < threshold) { 
-                let spd = 3 + upgrades.magnet; 
+                let spd = 2 + upgrades.magnet * 0.5; 
                 this.x += (dx / dist) * spd;
                 this.baseY += (dy / dist) * spd;
             }
@@ -1294,9 +1271,9 @@ class HeartItem extends Entity {
             let dx = (player.x + player.w/2) - (this.x + this.w/2);
             let dy = (player.y + player.h/2) - (this.y + this.h/2);
             let dist = Math.sqrt(dx*dx + dy*dy);
-            let threshold = 100 + (upgrades.magnet * 50); 
+            let threshold = 60 + (upgrades.magnet * 20); 
             if (dist < threshold) { 
-                let spd = 3 + upgrades.magnet; 
+                let spd = 2 + upgrades.magnet * 0.5; 
                 this.x += (dx / dist) * spd;
                 this.baseY += (dy / dist) * spd;
             }
@@ -1306,14 +1283,13 @@ class HeartItem extends Entity {
     draw(ctx) {
         ctx.save();
         ctx.translate(this.x + this.w/2, this.y + this.h/2);
-        ctx.fillStyle = '#ff2255'; 
         
-        // ドット絵風のハート描画
-        ctx.fillRect(-4, -4, 3, 3); // 左上
-        ctx.fillRect(1, -4, 3, 3);  // 右上
-        ctx.fillRect(-5, -1, 10, 3); // 中段
-        ctx.fillRect(-3, 2, 6, 2);   // 下段
-        ctx.fillRect(-1, 4, 2, 2);   // 最下段
+        ctx.fillStyle = '#ff3366';
+        ctx.beginPath();
+        ctx.moveTo(0, 3);
+        ctx.bezierCurveTo(-5, -2, -10, 2, 0, 8);
+        ctx.bezierCurveTo(10, 2, 5, -2, 0, 3);
+        ctx.fill();
         
         ctx.restore();
     }
@@ -1749,12 +1725,10 @@ function updatePlay() {
                 spawnParticles(i.x+i.w/2, i.y+i.h/2, 30, '#ffff00', 4);
                 totalScore += 500;
             } else if (i instanceof HeartItem) {
-                if (hp < maxHp) {
-                    hp++;
-                }
+                if (hp < maxHp) hp++;
                 playSound('heal');
-                spawnParticles(i.x+i.w/2, i.y+i.h/2, 15, '#ff2255', 3);
-                totalScore += 50;
+                spawnParticles(i.x+i.w/2, i.y+i.h/2, 10, '#ff3366', 3);
+                totalScore += 200;
             } else {
                 gems++;
                 let gain = 10;
@@ -1809,7 +1783,14 @@ function drawPlay(ctx) {
     
     ctx.shadowBlur = 10;
     ctx.shadowColor = COLOR_GEM;
-    items.forEach(i => i.draw(ctx));
+    items.forEach(i => {
+        if (!(i instanceof HeartItem)) i.draw(ctx);
+    });
+    
+    ctx.shadowColor = '#ff3366';
+    items.forEach(i => {
+        if (i instanceof HeartItem) i.draw(ctx);
+    });
     
     ctx.shadowBlur = 8;
     ctx.shadowColor = COLOR_BULLET;
@@ -1950,7 +1931,6 @@ function shareScore() {
                `#OVERJUMPER`;
     
     let shareUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}`;
-    
     window.open(shareUrl, '_blank');
 }
 
@@ -2106,16 +2086,16 @@ function buyItem(index) {
 // Data Management (localStorage)
 // ==========================================
 function saveScore() {
-    let scores = JSON.parse(localStorage.getItem('overjumper_scores') || '[]');
+    let scores = JSON.parse(localStorage.getItem('upwell_scores') || '[]');
     scores.push({ score: totalScore, stage: currentStage, date: new Date().toLocaleDateString() });
     scores.sort((a, b) => b.score - a.score);
     scores = scores.slice(0, 5); 
-    localStorage.setItem('overjumper_scores', JSON.stringify(scores));
+    localStorage.setItem('upwell_scores', JSON.stringify(scores));
     loadRanking();
 }
 
 function loadRanking() {
-    let scores = JSON.parse(localStorage.getItem('overjumper_scores') || '[]');
+    let scores = JSON.parse(localStorage.getItem('upwell_scores') || '[]');
     const list = document.getElementById('ranking-list');
     list.innerHTML = '';
     if (scores.length === 0) {
